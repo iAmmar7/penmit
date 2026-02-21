@@ -1,0 +1,34 @@
+{
+  "name": "git-ai",
+  "version": "0.1.0",
+  "description": "AI-powered git commit message generator using local Ollama LLM",
+  "type": "module",
+  "bin": {
+    "git-ai": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "git",
+    "ai",
+    "commit",
+    "ollama",
+    "cli"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^25.3.0",
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
