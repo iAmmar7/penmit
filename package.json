@@ -1,10 +1,10 @@
 {
-  "name": "git-ai",
+  "name": "aicommit",
   "version": "0.1.0",
   "description": "AI-powered git commit message generator using local Ollama LLM",
   "type": "module",
   "bin": {
-    "git-ai": "./dist/index.js"
+    "aicommit": "./dist/index.js"
   },
   "files": [
     "dist"
