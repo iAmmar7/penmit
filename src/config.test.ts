@@ -4,6 +4,7 @@ import {
   buildConfig,
   LOCAL_OLLAMA_URL,
   CLOUD_OLLAMA_URL,
+  OLLAMA_API_PATH,
   DEFAULT_LOCAL_MODEL,
   DEFAULT_CLOUD_MODEL,
 } from "./config.js";
@@ -97,5 +98,28 @@ describe("buildConfig", () => {
   it("sets debug=false when DEBUG is absent", () => {
     const config = buildConfig({ help: false, version: false }, {});
     expect(config.debug).toBe(false);
+  });
+
+  it("uses OLLAMA_HOST with host:port", () => {
+    const config = buildConfig({ help: false, version: false }, { OLLAMA_HOST: "localhost:8080" });
+    expect(config.ollamaUrl).toBe(`http://localhost:8080${OLLAMA_API_PATH}`);
+  });
+
+  it("uses OLLAMA_HOST with full URL", () => {
+    const config = buildConfig({ help: false, version: false }, { OLLAMA_HOST: "http://192.168.1.5:11434" });
+    expect(config.ollamaUrl).toBe(`http://192.168.1.5:11434${OLLAMA_API_PATH}`);
+  });
+
+  it("uses OLLAMA_HOST with custom path as-is", () => {
+    const config = buildConfig({ help: false, version: false }, { OLLAMA_HOST: "http://myserver.com/ollama/api/generate" });
+    expect(config.ollamaUrl).toBe("http://myserver.com/ollama/api/generate");
+  });
+
+  it("ignores OLLAMA_HOST in cloud mode", () => {
+    const config = buildConfig(
+      { help: false, version: false },
+      { OLLAMA_API_KEY: "sk-test", OLLAMA_HOST: "localhost:8080" }
+    );
+    expect(config.ollamaUrl).toBe(CLOUD_OLLAMA_URL);
   });
 });

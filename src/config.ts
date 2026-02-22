@@ -1,9 +1,9 @@
 import type { Config, ParsedArgs } from "./types.js";
 
-// FIXME: LOCAL OLLAMA URL or PORT might be different for users.
-export const LOCAL_OLLAMA_URL = "http://localhost:11434/api/generate";
+export const OLLAMA_API_PATH = "/api/generate";
+export const LOCAL_OLLAMA_URL = `http://localhost:11434${OLLAMA_API_PATH}`;
 // FIXME: CLOUD OLLAMA URL might change in the future.
-export const CLOUD_OLLAMA_URL = "https://ollama.com/api/generate";
+export const CLOUD_OLLAMA_URL = `https://ollama.com${OLLAMA_API_PATH}`;
 // FIXME: Default model can be the first model that is listed by `ollama list` command. 
 // Or does Ollama has a concept of "default" model?
 export const DEFAULT_LOCAL_MODEL = "llama3.1";
@@ -42,6 +42,23 @@ export function parseArgs(argv: string[]): ParsedArgs {
   return result;
 }
 
+// OLLAMA_HOST is Ollama's own env var for configuring the server address.
+// The Ollama client (ollama run, ollama pull, etc.) also reads it to know where to connect.
+// Ref: https://github.com/ollama/ollama/blob/main/api/client.go
+function buildLocalUrl(env: Record<string, string | undefined>): string {
+  const host = env.OLLAMA_HOST;
+  if (!host) return LOCAL_OLLAMA_URL;
+
+  const base = host.includes("://") ? host : `http://${host}`;
+  const url = new URL(base);
+
+  // If user provided a custom path, use the URL as-is
+  if (url.pathname !== "/") return base.replace(/\/$/, "");
+
+  // Otherwise append the standard Ollama path
+  return `${base.replace(/\/$/, "")}${OLLAMA_API_PATH}`;
+}
+
 export function buildConfig(
   args: ParsedArgs,
   env: Record<string, string | undefined> = process.env
@@ -50,7 +67,7 @@ export function buildConfig(
   const isCloud = Boolean(apiKey);
 
   return {
-    ollamaUrl: isCloud ? CLOUD_OLLAMA_URL : LOCAL_OLLAMA_URL,
+    ollamaUrl: isCloud ? CLOUD_OLLAMA_URL : buildLocalUrl(env),
     model: args.model ?? (isCloud ? DEFAULT_CLOUD_MODEL : DEFAULT_LOCAL_MODEL),
     apiKey,
     debug: env.DEBUG === "1",
