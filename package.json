@@ -1,7 +1,7 @@
 {
   "name": "aicommit",
   "version": "0.1.0",
-  "description": "AI-powered git commit message generator using local Ollama LLM",
+  "description": "AI-powered git commit message generator using Ollama — local or cloud",
   "type": "module",
   "bin": {
     "aicommit": "./dist/index.js"
@@ -29,8 +29,13 @@
     "ollama",
     "cli"
   ],
-  "author": "",
+  "author": "Ammar Ansari <iammaransari@gmail.com>",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/iammar7/aicommit.git"
+  },
+  "homepage": "https://github.com/iammar7/aicommit#readme",
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/node": "^25.3.0",
