@@ -1,4 +1,4 @@
-const FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+const FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
 
 export interface Spinner {
   stop(finalMessage?: string): void;
@@ -23,7 +23,7 @@ export function createSpinner(text: string): Spinner {
   return {
     stop(finalMessage?: string) {
       clearInterval(interval);
-      process.stdout.write("\r\x1b[K");
+      process.stdout.write('\r\x1b[K');
       if (finalMessage) process.stdout.write(`${finalMessage}\n`);
     },
   };

@@ -1,4 +1,4 @@
-export type UserChoice = "accept" | "regenerate" | "edit";
+export type UserChoice = 'accept' | 'regenerate' | 'edit';
 
 export type Provider = 'local' | 'cloud';
 

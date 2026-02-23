@@ -28,10 +28,7 @@ export function readUserConfig(configPath = getUserConfigPath()): UserConfig {
   }
 }
 
-export function writeUserConfig(
-  config: UserConfig,
-  configPath = getUserConfigPath(),
-): void {
+export function writeUserConfig(config: UserConfig, configPath = getUserConfigPath()): void {
   const dir = dirname(configPath);
   mkdirSync(dir, { recursive: true });
   writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n', 'utf8');
@@ -65,9 +62,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
       case '-m': {
         const next = argv[i + 1];
         if (!next || next.startsWith('-')) {
-          throw new Error(
-            `${arg} requires a model name (e.g. --model mistral)`,
-          );
+          throw new Error(`${arg} requires a model name (e.g. --model mistral)`);
         }
         result.model = next;
         i++;

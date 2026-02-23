@@ -70,9 +70,7 @@ describe('parseArgs', () => {
   });
 
   it('throws when --model is followed by another flag', () => {
-    expect(() => parseArgs(['--model', '--help'])).toThrow(
-      /requires a model name/,
-    );
+    expect(() => parseArgs(['--model', '--help'])).toThrow(/requires a model name/);
   });
 
   it('throws on unknown option', () => {
@@ -96,9 +94,7 @@ describe('buildOllamaChatUrl', () => {
   });
 
   it('ignores OLLAMA_HOST for cloud', () => {
-    expect(buildOllamaChatUrl('cloud', { OLLAMA_HOST: 'localhost:8080' })).toBe(
-      CLOUD_OLLAMA_URL,
-    );
+    expect(buildOllamaChatUrl('cloud', { OLLAMA_HOST: 'localhost:8080' })).toBe(CLOUD_OLLAMA_URL);
   });
 });
 
@@ -128,9 +124,7 @@ describe('buildConfig', () => {
   });
 
   it('sets debug=true when DEBUG=1', () => {
-    expect(
-      buildConfig('local', 'llama3.1', undefined, { DEBUG: '1' }).debug,
-    ).toBe(true);
+    expect(buildConfig('local', 'llama3.1', undefined, { DEBUG: '1' }).debug).toBe(true);
   });
 
   it('sets debug=false when DEBUG is absent', () => {
@@ -148,9 +142,7 @@ describe('buildConfig', () => {
     const config = buildConfig('local', 'llama3.1', undefined, {
       OLLAMA_HOST: 'http://192.168.1.5:11434',
     });
-    expect(config.ollamaUrl).toBe(
-      `http://192.168.1.5:11434${OLLAMA_CHAT_PATH}`,
-    );
+    expect(config.ollamaUrl).toBe(`http://192.168.1.5:11434${OLLAMA_CHAT_PATH}`);
   });
 
   it('uses OLLAMA_HOST with custom path as-is', () => {
@@ -170,9 +162,9 @@ describe('buildConfig', () => {
 
 describe('buildOllamaTagsUrl', () => {
   it('replaces /api/chat with /api/tags', () => {
-    expect(
-      buildOllamaTagsUrl(`http://localhost:11434${OLLAMA_CHAT_PATH}`),
-    ).toBe(`http://localhost:11434${OLLAMA_TAGS_PATH}`);
+    expect(buildOllamaTagsUrl(`http://localhost:11434${OLLAMA_CHAT_PATH}`)).toBe(
+      `http://localhost:11434${OLLAMA_TAGS_PATH}`,
+    );
   });
 
   it('works with a custom host and port', () => {
@@ -182,9 +174,9 @@ describe('buildOllamaTagsUrl', () => {
   });
 
   it('works with a remote host', () => {
-    expect(
-      buildOllamaTagsUrl(`http://192.168.1.5:11434${OLLAMA_CHAT_PATH}`),
-    ).toBe(`http://192.168.1.5:11434${OLLAMA_TAGS_PATH}`);
+    expect(buildOllamaTagsUrl(`http://192.168.1.5:11434${OLLAMA_CHAT_PATH}`)).toBe(
+      `http://192.168.1.5:11434${OLLAMA_TAGS_PATH}`,
+    );
   });
 
   it('works with a custom path prefix', () => {
@@ -215,17 +207,13 @@ describe('getUserConfigPath', () => {
   it('falls back to ~/.config on Linux when XDG_CONFIG_HOME is not set', () => {
     setPlatform('linux');
     vi.stubEnv('XDG_CONFIG_HOME', '');
-    expect(getUserConfigPath()).toBe(
-      join(homedir(), '.config', 'aicommit', 'config.json'),
-    );
+    expect(getUserConfigPath()).toBe(join(homedir(), '.config', 'aicommit', 'config.json'));
   });
 
   it('uses ~/.config on macOS by default', () => {
     setPlatform('darwin');
     vi.stubEnv('XDG_CONFIG_HOME', '');
-    expect(getUserConfigPath()).toBe(
-      join(homedir(), '.config', 'aicommit', 'config.json'),
-    );
+    expect(getUserConfigPath()).toBe(join(homedir(), '.config', 'aicommit', 'config.json'));
   });
 
   it('uses APPDATA on Windows when set', () => {

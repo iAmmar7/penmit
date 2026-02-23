@@ -1,6 +1,6 @@
-import { readFileSync } from "fs";
-import { dirname, join } from "path";
-import { fileURLToPath } from "url";
+import { readFileSync } from 'fs';
+import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
 import {
   parseArgs,
   buildConfig,
@@ -10,26 +10,21 @@ import {
   writeUserConfig,
   DEFAULT_CLOUD_MODEL,
 } from './config.js';
-import { GitError, OllamaError } from "./errors.js";
-import { getStagedDiff, runCommit } from "./git.js";
+import { GitError, OllamaError } from './errors.js';
+import { getStagedDiff, runCommit } from './git.js';
 import { generateCommitMessage, getLocalModels } from './ollama.js';
-import {
-  promptUser,
-  editMessage,
-  selectFromList,
-  promptInput,
-} from './prompt.js';
-import { createSpinner } from "./spinner.js";
+import { promptUser, editMessage, selectFromList, promptInput } from './prompt.js';
+import { createSpinner } from './spinner.js';
 import type { ParsedArgs, Provider, UserConfig } from './types.js';
 
 function getVersion(): string {
   try {
     const __dirname = dirname(fileURLToPath(import.meta.url));
-    const raw = readFileSync(join(__dirname, "..", "package.json"), "utf8");
+    const raw = readFileSync(join(__dirname, '..', 'package.json'), 'utf8');
     const pkg = JSON.parse(raw) as { version: string };
     return pkg.version;
   } catch {
-    return "0.0.0";
+    return '0.0.0';
   }
 }
 
@@ -61,7 +56,7 @@ Examples:
 `.trim();
 
 async function generate(diff: string, config: ReturnType<typeof buildConfig>) {
-  const spinner = createSpinner("Generating commit message");
+  const spinner = createSpinner('Generating commit message');
   try {
     const message = await generateCommitMessage(diff, config);
     spinner.stop();
@@ -115,8 +110,7 @@ async function resolveModel(
   }
 
   if (provider === 'cloud') {
-    const saved =
-      savedConfig.provider === 'cloud' ? savedConfig.model : undefined;
+    const saved = savedConfig.provider === 'cloud' ? savedConfig.model : undefined;
     if (saved && !args.setup) {
       return { model: saved, fromInteractive: false };
     }
@@ -128,9 +122,7 @@ async function resolveModel(
   const models = await getLocalModels(tagsUrl);
 
   if (models.length === 0) {
-    throw new OllamaError(
-      'No local models found. Install one with:\n  ollama pull llama3.1',
-    );
+    throw new OllamaError('No local models found. Install one with:\n  ollama pull llama3.1');
   }
 
   // Saved model still installed and no --setup -> use it silently
@@ -250,9 +242,7 @@ export async function run(
   }
 
   if (!diff.trim()) {
-    console.error(
-      'No staged changes found. Stage your changes with "git add" first.',
-    );
+    console.error('No staged changes found. Stage your changes with "git add" first.');
     process.exit(1);
   }
 

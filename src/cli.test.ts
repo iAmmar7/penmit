@@ -1,26 +1,26 @@
-import { describe, it, expect, vi, beforeEach, beforeAll, afterEach } from "vitest";
-import * as configModule from "./config.js";
-import * as gitModule from "./git.js";
-import * as ollamaModule from "./ollama.js";
-import * as promptModule from "./prompt.js";
-import * as spinnerModule from "./spinner.js";
-import { readFileSync } from "fs";
-import { GitError, OllamaError } from "./errors.js";
+import { describe, it, expect, vi, beforeEach, beforeAll, afterEach } from 'vitest';
+import * as configModule from './config.js';
+import * as gitModule from './git.js';
+import * as ollamaModule from './ollama.js';
+import * as promptModule from './prompt.js';
+import * as spinnerModule from './spinner.js';
+import { readFileSync } from 'fs';
+import { GitError, OllamaError } from './errors.js';
 
-vi.mock("./config.js");
-vi.mock("./git.js");
-vi.mock("./ollama.js");
-vi.mock("./prompt.js");
-vi.mock("./spinner.js");
-vi.mock("fs", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("fs")>();
+vi.mock('./config.js');
+vi.mock('./git.js');
+vi.mock('./ollama.js');
+vi.mock('./prompt.js');
+vi.mock('./spinner.js');
+vi.mock('fs', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('fs')>();
   return { ...actual, readFileSync: vi.fn(actual.readFileSync) };
 });
 
 const LOCAL_URL = 'http://localhost:11434/api/chat';
 const TAGS_URL = 'http://localhost:11434/api/tags';
 
-describe("run", () => {
+describe('run', () => {
   let exitSpy: ReturnType<typeof vi.spyOn>;
   let logSpy: ReturnType<typeof vi.spyOn>;
   let errorSpy: ReturnType<typeof vi.spyOn>;
@@ -33,9 +33,7 @@ describe("run", () => {
 
   beforeEach(() => {
     vi.resetAllMocks();
-    vi.mocked(readFileSync).mockImplementation(
-      actualReadFileSync as typeof readFileSync,
-    );
+    vi.mocked(readFileSync).mockImplementation(actualReadFileSync as typeof readFileSync);
 
     exitSpy = vi.spyOn(process, 'exit').mockImplementation((code) => {
       throw new Error(`process.exit(${code})`);
@@ -60,25 +58,18 @@ describe("run", () => {
     vi.mocked(configModule.buildOllamaChatUrl).mockReturnValue(LOCAL_URL);
     vi.mocked(configModule.buildOllamaTagsUrl).mockReturnValue(TAGS_URL);
     // Dynamic mock: return a config using the provider/model args passed in
-    vi.mocked(configModule.buildConfig).mockImplementation(
-      (provider, model) => ({
-        provider: provider as 'local' | 'cloud',
-        ollamaUrl:
-          provider === 'local' ? LOCAL_URL : 'https://ollama.com/api/chat',
-        model: model as string,
-        debug: false,
-      }),
-    );
+    vi.mocked(configModule.buildConfig).mockImplementation((provider, model) => ({
+      provider: provider as 'local' | 'cloud',
+      ollamaUrl: provider === 'local' ? LOCAL_URL : 'https://ollama.com/api/chat',
+      model: model as string,
+      debug: false,
+    }));
 
     vi.mocked(promptModule.promptInput).mockResolvedValue('');
 
-    vi.mocked(gitModule.getStagedDiff).mockReturnValue(
-      'diff --git a/foo.ts b/foo.ts\n+hello',
-    );
+    vi.mocked(gitModule.getStagedDiff).mockReturnValue('diff --git a/foo.ts b/foo.ts\n+hello');
     vi.mocked(ollamaModule.getLocalModels).mockResolvedValue(['llama3.1']);
-    vi.mocked(ollamaModule.generateCommitMessage).mockResolvedValue(
-      'feat: add login',
-    );
+    vi.mocked(ollamaModule.generateCommitMessage).mockResolvedValue('feat: add login');
     vi.mocked(promptModule.promptUser).mockResolvedValue('accept');
     vi.mocked(promptModule.selectFromList).mockResolvedValue('local');
     vi.mocked(gitModule.runCommit).mockReturnValue(0);
@@ -91,10 +82,7 @@ describe("run", () => {
     errorSpy.mockRestore();
   });
 
-  async function run(
-    argv?: string[],
-    env?: Record<string, string | undefined>,
-  ) {
+  async function run(argv?: string[], env?: Record<string, string | undefined>) {
     const { run: runFn } = await import('./cli.js');
     return runFn(argv, env ?? {});
   }
@@ -165,10 +153,7 @@ describe("run", () => {
     vi.mocked(promptModule.selectFromList)
       .mockResolvedValueOnce('local') // provider picker
       .mockResolvedValueOnce('llama3.1'); // model picker
-    vi.mocked(ollamaModule.getLocalModels).mockResolvedValue([
-      'llama3.1',
-      'mistral',
-    ]);
+    vi.mocked(ollamaModule.getLocalModels).mockResolvedValue(['llama3.1', 'mistral']);
 
     await run();
 
@@ -218,9 +203,7 @@ describe("run", () => {
 
   it('OLLAMA_API_KEY env var triggers cloud provider without picker', async () => {
     vi.mocked(configModule.readUserConfig).mockReturnValue({});
-    vi.mocked(promptModule.promptInput).mockResolvedValue(
-      'devstral-small-2:24b',
-    );
+    vi.mocked(promptModule.promptInput).mockResolvedValue('devstral-small-2:24b');
     vi.mocked(configModule.buildConfig).mockReturnValue({
       provider: 'cloud',
       ollamaUrl: 'https://ollama.com/api/chat',
@@ -241,9 +224,7 @@ describe("run", () => {
     });
 
     await expect(run([], {})).rejects.toThrow('process.exit(1)');
-    expect(errorSpy).toHaveBeenCalledWith(
-      expect.stringContaining('OLLAMA_API_KEY'),
-    );
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('OLLAMA_API_KEY'));
   });
 
   it('--setup forces interactive picker even when saved config exists', async () => {
@@ -259,10 +240,7 @@ describe("run", () => {
     vi.mocked(promptModule.selectFromList)
       .mockResolvedValueOnce('local') // provider picker
       .mockResolvedValueOnce('mistral'); // model picker
-    vi.mocked(ollamaModule.getLocalModels).mockResolvedValue([
-      'llama3.1',
-      'mistral',
-    ]);
+    vi.mocked(ollamaModule.getLocalModels).mockResolvedValue(['llama3.1', 'mistral']);
 
     await run(['--setup']);
 
@@ -278,10 +256,7 @@ describe("run", () => {
       provider: 'local',
       model: 'mistral',
     });
-    vi.mocked(ollamaModule.getLocalModels).mockResolvedValue([
-      'llama3.1',
-      'mistral',
-    ]);
+    vi.mocked(ollamaModule.getLocalModels).mockResolvedValue(['llama3.1', 'mistral']);
 
     await run();
 
@@ -297,10 +272,7 @@ describe("run", () => {
       provider: 'local',
       model: 'removed-model',
     });
-    vi.mocked(ollamaModule.getLocalModels).mockResolvedValue([
-      'llama3.1',
-      'mistral',
-    ]);
+    vi.mocked(ollamaModule.getLocalModels).mockResolvedValue(['llama3.1', 'mistral']);
     vi.mocked(promptModule.selectFromList).mockResolvedValueOnce('mistral');
 
     await run();
@@ -366,9 +338,7 @@ describe("run", () => {
     vi.mocked(ollamaModule.getLocalModels).mockResolvedValue([]);
 
     await expect(run()).rejects.toThrow('process.exit(1)');
-    expect(errorSpy).toHaveBeenCalledWith(
-      expect.stringContaining('No local models found'),
-    );
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('No local models found'));
   });
 
   it('exits with code 1 when getLocalModels throws OllamaError', async () => {
@@ -418,9 +388,7 @@ describe("run", () => {
   it('exits with code 1 when diff is empty', async () => {
     vi.mocked(gitModule.getStagedDiff).mockReturnValue('   ');
     await expect(run()).rejects.toThrow('process.exit(1)');
-    expect(errorSpy).toHaveBeenCalledWith(
-      expect.stringContaining('No staged changes'),
-    );
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('No staged changes'));
   });
 
   it('exits with code 1 when generateCommitMessage throws OllamaError', async () => {
@@ -432,9 +400,7 @@ describe("run", () => {
   });
 
   it('exits with code 1 when generateCommitMessage throws a non-OllamaError', async () => {
-    vi.mocked(ollamaModule.generateCommitMessage).mockRejectedValue(
-      'raw string error',
-    );
+    vi.mocked(ollamaModule.generateCommitMessage).mockRejectedValue('raw string error');
     await expect(run()).rejects.toThrow('process.exit(1)');
     expect(errorSpy).toHaveBeenCalledWith('raw string error');
   });
@@ -489,9 +455,7 @@ describe("run", () => {
 
   it('runs commit with edited message when user chooses edit', async () => {
     vi.mocked(promptModule.promptUser).mockResolvedValue('edit');
-    vi.mocked(promptModule.editMessage).mockResolvedValue(
-      'fix: edited message',
-    );
+    vi.mocked(promptModule.editMessage).mockResolvedValue('fix: edited message');
     vi.mocked(gitModule.runCommit).mockReturnValue(0);
 
     await run();
