@@ -17,11 +17,8 @@ vi.mock("fs", async (importOriginal) => {
   return { ...actual, readFileSync: vi.fn(actual.readFileSync) };
 });
 
-const defaultConfig = {
-  ollamaUrl: "http://localhost:11434/api/generate",
-  model: "llama3.1",
-  debug: false,
-};
+const LOCAL_URL = 'http://localhost:11434/api/chat';
+const TAGS_URL = 'http://localhost:11434/api/tags';
 
 describe("run", () => {
   let exitSpy: ReturnType<typeof vi.spyOn>;
@@ -30,25 +27,60 @@ describe("run", () => {
   let actualReadFileSync: typeof readFileSync;
 
   beforeAll(async () => {
-    const fs = await vi.importActual<typeof import("fs")>("fs");
+    const fs = await vi.importActual<typeof import('fs')>('fs');
     actualReadFileSync = fs.readFileSync;
   });
 
   beforeEach(() => {
     vi.resetAllMocks();
-    vi.mocked(readFileSync).mockImplementation(actualReadFileSync as typeof readFileSync);
+    vi.mocked(readFileSync).mockImplementation(
+      actualReadFileSync as typeof readFileSync,
+    );
 
-    exitSpy = vi.spyOn(process, "exit").mockImplementation((code) => {
+    exitSpy = vi.spyOn(process, 'exit').mockImplementation((code) => {
       throw new Error(`process.exit(${code})`);
     });
-    logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-    errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
-    vi.mocked(configModule.parseArgs).mockReturnValue({ help: false, version: false });
-    vi.mocked(configModule.buildConfig).mockReturnValue(defaultConfig);
-    vi.mocked(gitModule.getStagedDiff).mockReturnValue("diff --git a/foo.ts b/foo.ts\n+hello");
-    vi.mocked(ollamaModule.generateCommitMessage).mockResolvedValue("feat: add login");
-    vi.mocked(promptModule.promptUser).mockResolvedValue("accept");
+    // Default: parsed args with no flags
+    vi.mocked(configModule.parseArgs).mockReturnValue({
+      help: false,
+      version: false,
+      setup: false,
+    });
+
+    // Default: saved config has local + llama3.1 (no interactive needed)
+    vi.mocked(configModule.readUserConfig).mockReturnValue({
+      provider: 'local',
+      model: 'llama3.1',
+    });
+    vi.mocked(configModule.writeUserConfig).mockImplementation(() => {});
+
+    vi.mocked(configModule.buildOllamaChatUrl).mockReturnValue(LOCAL_URL);
+    vi.mocked(configModule.buildOllamaTagsUrl).mockReturnValue(TAGS_URL);
+    // Dynamic mock: return a config using the provider/model args passed in
+    vi.mocked(configModule.buildConfig).mockImplementation(
+      (provider, model) => ({
+        provider: provider as 'local' | 'cloud',
+        ollamaUrl:
+          provider === 'local' ? LOCAL_URL : 'https://ollama.com/api/chat',
+        model: model as string,
+        debug: false,
+      }),
+    );
+
+    vi.mocked(promptModule.promptInput).mockResolvedValue('');
+
+    vi.mocked(gitModule.getStagedDiff).mockReturnValue(
+      'diff --git a/foo.ts b/foo.ts\n+hello',
+    );
+    vi.mocked(ollamaModule.getLocalModels).mockResolvedValue(['llama3.1']);
+    vi.mocked(ollamaModule.generateCommitMessage).mockResolvedValue(
+      'feat: add login',
+    );
+    vi.mocked(promptModule.promptUser).mockResolvedValue('accept');
+    vi.mocked(promptModule.selectFromList).mockResolvedValue('local');
     vi.mocked(gitModule.runCommit).mockReturnValue(0);
     vi.mocked(spinnerModule.createSpinner).mockReturnValue({ stop: vi.fn() });
   });
@@ -59,151 +91,421 @@ describe("run", () => {
     errorSpy.mockRestore();
   });
 
-  async function run(argv?: string[]) {
-    const { run: runFn } = await import("./cli.js");
-    return runFn(argv);
+  async function run(
+    argv?: string[],
+    env?: Record<string, string | undefined>,
+  ) {
+    const { run: runFn } = await import('./cli.js');
+    return runFn(argv, env ?? {});
   }
 
-  it("exits with code 1 when parseArgs throws an Error", async () => {
+  it('exits with code 1 when parseArgs throws an Error', async () => {
     vi.mocked(configModule.parseArgs).mockImplementation(() => {
-      throw new Error("Unknown option: --bad");
+      throw new Error('Unknown option: --bad');
     });
-    await expect(run(["--bad"])).rejects.toThrow("process.exit(1)");
-    expect(errorSpy).toHaveBeenCalledWith("Error: Unknown option: --bad");
+    await expect(run(['--bad'])).rejects.toThrow('process.exit(1)');
+    expect(errorSpy).toHaveBeenCalledWith('Error: Unknown option: --bad');
   });
 
-  it("exits with code 1 when parseArgs throws a non-Error", async () => {
+  it('exits with code 1 when parseArgs throws a non-Error', async () => {
     vi.mocked(configModule.parseArgs).mockImplementation(() => {
-      throw "plain string thrown";
+      throw 'plain string thrown';
     });
-    await expect(run(["--bad"])).rejects.toThrow("process.exit(1)");
-    expect(errorSpy).toHaveBeenCalledWith("Error: plain string thrown");
+    await expect(run(['--bad'])).rejects.toThrow('process.exit(1)');
+    expect(errorSpy).toHaveBeenCalledWith('Error: plain string thrown');
   });
 
-  it("prints help text and returns when --help is passed", async () => {
-    vi.mocked(configModule.parseArgs).mockReturnValue({ help: true, version: false });
-    await run(["--help"]);
-    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining("aicommit"));
+  it('prints help text and returns when --help is passed', async () => {
+    vi.mocked(configModule.parseArgs).mockReturnValue({
+      help: true,
+      version: false,
+      setup: false,
+    });
+    await run(['--help']);
+    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('aicommit'));
     expect(exitSpy).not.toHaveBeenCalled();
   });
 
-  it("prints version from package.json when --version is passed", async () => {
-    vi.mocked(configModule.parseArgs).mockReturnValue({ help: false, version: true });
-    await run(["--version"]);
+  it('prints version from package.json when --version is passed', async () => {
+    vi.mocked(configModule.parseArgs).mockReturnValue({
+      help: false,
+      version: true,
+      setup: false,
+    });
+    await run(['--version']);
     expect(logSpy).toHaveBeenCalledWith(expect.any(String));
     expect(exitSpy).not.toHaveBeenCalled();
   });
 
-  it("prints 0.0.0 when package.json cannot be read", async () => {
-    vi.mocked(configModule.parseArgs).mockReturnValue({ help: false, version: true });
+  it('prints 0.0.0 when package.json cannot be read', async () => {
+    vi.mocked(configModule.parseArgs).mockReturnValue({
+      help: false,
+      version: true,
+      setup: false,
+    });
     vi.mocked(readFileSync).mockImplementationOnce(() => {
-      throw new Error("ENOENT: no such file or directory");
+      throw new Error('ENOENT: no such file or directory');
     });
-    await run(["--version"]);
-    expect(logSpy).toHaveBeenCalledWith("0.0.0");
+    await run(['--version']);
+    expect(logSpy).toHaveBeenCalledWith('0.0.0');
   });
 
-  it("exits with code 1 when getStagedDiff throws GitError", async () => {
-    vi.mocked(gitModule.getStagedDiff).mockImplementation(() => {
-      throw new GitError("git not found");
+  it('uses saved local provider without showing picker', async () => {
+    vi.mocked(configModule.readUserConfig).mockReturnValue({
+      provider: 'local',
+      model: 'llama3.1',
     });
-    await expect(run()).rejects.toThrow("process.exit(1)");
-    expect(errorSpy).toHaveBeenCalledWith("git not found");
-  });
-
-  it("exits with code 1 when getStagedDiff throws a non-GitError", async () => {
-    vi.mocked(gitModule.getStagedDiff).mockImplementation(() => {
-      throw "spawn failure";
-    });
-    await expect(run()).rejects.toThrow("process.exit(1)");
-    expect(errorSpy).toHaveBeenCalledWith("spawn failure");
-  });
-
-  it("exits with code 1 when diff is empty", async () => {
-    vi.mocked(gitModule.getStagedDiff).mockReturnValue("   ");
-    await expect(run()).rejects.toThrow("process.exit(1)");
-    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining("No staged changes"));
-  });
-
-  it("exits with code 1 when generateCommitMessage throws OllamaError", async () => {
-    vi.mocked(ollamaModule.generateCommitMessage).mockRejectedValue(
-      new OllamaError("Could not connect to Ollama")
-    );
-    await expect(run()).rejects.toThrow("process.exit(1)");
-    expect(errorSpy).toHaveBeenCalledWith("Could not connect to Ollama");
-  });
-
-  it("exits with code 1 when generateCommitMessage throws a non-OllamaError", async () => {
-    vi.mocked(ollamaModule.generateCommitMessage).mockRejectedValue("raw string error");
-    await expect(run()).rejects.toThrow("process.exit(1)");
-    expect(errorSpy).toHaveBeenCalledWith("raw string error");
-  });
-
-  it("runs commit and returns when user accepts the message", async () => {
-    vi.mocked(promptModule.promptUser).mockResolvedValue("accept");
     await run();
-    expect(gitModule.runCommit).toHaveBeenCalledWith("feat: add login");
+    expect(promptModule.selectFromList).not.toHaveBeenCalled();
+    expect(configModule.writeUserConfig).not.toHaveBeenCalled();
+  });
+
+  it('shows interactive picker on first run (no saved config)', async () => {
+    vi.mocked(configModule.readUserConfig).mockReturnValue({});
+    vi.mocked(promptModule.selectFromList)
+      .mockResolvedValueOnce('local') // provider picker
+      .mockResolvedValueOnce('llama3.1'); // model picker
+    vi.mocked(ollamaModule.getLocalModels).mockResolvedValue([
+      'llama3.1',
+      'mistral',
+    ]);
+
+    await run();
+
+    expect(promptModule.selectFromList).toHaveBeenCalledTimes(2);
+    expect(configModule.writeUserConfig).toHaveBeenCalledWith({
+      provider: 'local',
+      model: 'llama3.1',
+    });
+  });
+
+  it('--local flag uses local provider without picker and does not save config', async () => {
+    vi.mocked(configModule.parseArgs).mockReturnValue({
+      help: false,
+      version: false,
+      setup: false,
+      provider: 'local',
+    });
+    vi.mocked(configModule.readUserConfig).mockReturnValue({});
+    vi.mocked(ollamaModule.getLocalModels).mockResolvedValue(['mistral']);
+
+    await run(['--local']);
+
+    expect(promptModule.selectFromList).not.toHaveBeenCalled();
+    expect(configModule.writeUserConfig).not.toHaveBeenCalled();
+  });
+
+  it('--cloud flag uses cloud provider without picker', async () => {
+    vi.mocked(configModule.parseArgs).mockReturnValue({
+      help: false,
+      version: false,
+      setup: false,
+      provider: 'cloud',
+    });
+    vi.mocked(configModule.readUserConfig).mockReturnValue({});
+    vi.mocked(configModule.buildConfig).mockReturnValue({
+      provider: 'cloud',
+      ollamaUrl: 'https://ollama.com/api/chat',
+      model: 'devstral-2',
+      apiKey: 'sk-test',
+      debug: false,
+    });
+
+    await run(['--cloud'], { OLLAMA_API_KEY: 'sk-test' });
+
+    expect(promptModule.selectFromList).not.toHaveBeenCalled();
+  });
+
+  it('OLLAMA_API_KEY env var triggers cloud provider without picker', async () => {
+    vi.mocked(configModule.readUserConfig).mockReturnValue({});
+    vi.mocked(promptModule.promptInput).mockResolvedValue(
+      'devstral-small-2:24b',
+    );
+    vi.mocked(configModule.buildConfig).mockReturnValue({
+      provider: 'cloud',
+      ollamaUrl: 'https://ollama.com/api/chat',
+      model: 'devstral-small-2:24b',
+      apiKey: 'sk-test',
+      debug: false,
+    });
+
+    await run([], { OLLAMA_API_KEY: 'sk-test' });
+
+    expect(promptModule.selectFromList).not.toHaveBeenCalled();
+  });
+
+  it('exits with code 1 when cloud is selected but OLLAMA_API_KEY is not set', async () => {
+    vi.mocked(configModule.readUserConfig).mockReturnValue({
+      provider: 'cloud',
+      model: 'devstral-2',
+    });
+
+    await expect(run([], {})).rejects.toThrow('process.exit(1)');
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining('OLLAMA_API_KEY'),
+    );
+  });
+
+  it('--setup forces interactive picker even when saved config exists', async () => {
+    vi.mocked(configModule.parseArgs).mockReturnValue({
+      help: false,
+      version: false,
+      setup: true,
+    });
+    vi.mocked(configModule.readUserConfig).mockReturnValue({
+      provider: 'local',
+      model: 'llama3.1',
+    });
+    vi.mocked(promptModule.selectFromList)
+      .mockResolvedValueOnce('local') // provider picker
+      .mockResolvedValueOnce('mistral'); // model picker
+    vi.mocked(ollamaModule.getLocalModels).mockResolvedValue([
+      'llama3.1',
+      'mistral',
+    ]);
+
+    await run(['--setup']);
+
+    expect(promptModule.selectFromList).toHaveBeenCalledTimes(2);
+    expect(configModule.writeUserConfig).toHaveBeenCalledWith({
+      provider: 'local',
+      model: 'mistral',
+    });
+  });
+
+  it('uses saved local model silently when it is still installed', async () => {
+    vi.mocked(configModule.readUserConfig).mockReturnValue({
+      provider: 'local',
+      model: 'mistral',
+    });
+    vi.mocked(ollamaModule.getLocalModels).mockResolvedValue([
+      'llama3.1',
+      'mistral',
+    ]);
+
+    await run();
+
+    expect(promptModule.selectFromList).not.toHaveBeenCalled();
+    expect(ollamaModule.generateCommitMessage).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ model: 'mistral' }),
+    );
+  });
+
+  it('shows model picker when saved model is no longer installed', async () => {
+    vi.mocked(configModule.readUserConfig).mockReturnValue({
+      provider: 'local',
+      model: 'removed-model',
+    });
+    vi.mocked(ollamaModule.getLocalModels).mockResolvedValue([
+      'llama3.1',
+      'mistral',
+    ]);
+    vi.mocked(promptModule.selectFromList).mockResolvedValueOnce('mistral');
+
+    await run();
+
+    expect(promptModule.selectFromList).toHaveBeenCalledTimes(1);
+    expect(configModule.writeUserConfig).toHaveBeenCalledWith({
+      provider: 'local',
+      model: 'mistral',
+    });
+  });
+
+  it('--model flag overrides saved model for this run only', async () => {
+    vi.mocked(configModule.parseArgs).mockReturnValue({
+      help: false,
+      version: false,
+      setup: false,
+      model: 'codellama',
+    });
+    vi.mocked(configModule.readUserConfig).mockReturnValue({
+      provider: 'local',
+      model: 'llama3.1',
+    });
+
+    await run(['--model', 'codellama']);
+
+    expect(promptModule.selectFromList).not.toHaveBeenCalled();
+    expect(configModule.buildConfig).toHaveBeenCalledWith(
+      'local',
+      'codellama',
+      undefined,
+      expect.any(Object),
+    );
+    expect(configModule.writeUserConfig).not.toHaveBeenCalled();
+  });
+
+  it('prompts for cloud model and uses default when empty input', async () => {
+    vi.mocked(configModule.readUserConfig).mockReturnValue({});
+    vi.mocked(promptModule.promptInput).mockResolvedValue('');
+    vi.mocked(configModule.buildConfig).mockReturnValue({
+      provider: 'cloud',
+      ollamaUrl: 'https://ollama.com/api/chat',
+      model: 'devstral-small-2:24b',
+      apiKey: 'sk-test',
+      debug: false,
+    });
+
+    await run([], { OLLAMA_API_KEY: 'sk-test' });
+
+    expect(promptModule.selectFromList).not.toHaveBeenCalled();
+    expect(configModule.buildConfig).toHaveBeenCalledWith(
+      'cloud',
+      'devstral-small-2:24b',
+      'sk-test',
+      expect.any(Object),
+    );
+  });
+
+  it('exits with code 1 when no local models are installed', async () => {
+    vi.mocked(configModule.readUserConfig).mockReturnValue({
+      provider: 'local',
+      model: undefined,
+    });
+    vi.mocked(ollamaModule.getLocalModels).mockResolvedValue([]);
+
+    await expect(run()).rejects.toThrow('process.exit(1)');
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining('No local models found'),
+    );
+  });
+
+  it('exits with code 1 when getLocalModels throws OllamaError', async () => {
+    vi.mocked(configModule.readUserConfig).mockReturnValue({
+      provider: 'local',
+    });
+    vi.mocked(ollamaModule.getLocalModels).mockRejectedValue(
+      new OllamaError('Could not connect to Ollama'),
+    );
+
+    await expect(run()).rejects.toThrow('process.exit(1)');
+    expect(errorSpy).toHaveBeenCalledWith('Could not connect to Ollama');
+  });
+
+  it('exits with code 1 when getLocalModels throws a non-OllamaError', async () => {
+    vi.mocked(configModule.readUserConfig).mockReturnValue({
+      provider: 'local',
+    });
+    vi.mocked(ollamaModule.getLocalModels).mockRejectedValue('raw error');
+
+    await expect(run()).rejects.toThrow('process.exit(1)');
+    expect(errorSpy).toHaveBeenCalledWith('raw error');
+  });
+
+  it('prints provider and model before generating', async () => {
+    await run();
+    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('Local'));
+    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('llama3.1'));
+  });
+
+  it('exits with code 1 when getStagedDiff throws GitError', async () => {
+    vi.mocked(gitModule.getStagedDiff).mockImplementation(() => {
+      throw new GitError('git not found');
+    });
+    await expect(run()).rejects.toThrow('process.exit(1)');
+    expect(errorSpy).toHaveBeenCalledWith('git not found');
+  });
+
+  it('exits with code 1 when getStagedDiff throws a non-GitError', async () => {
+    vi.mocked(gitModule.getStagedDiff).mockImplementation(() => {
+      throw 'spawn failure';
+    });
+    await expect(run()).rejects.toThrow('process.exit(1)');
+    expect(errorSpy).toHaveBeenCalledWith('spawn failure');
+  });
+
+  it('exits with code 1 when diff is empty', async () => {
+    vi.mocked(gitModule.getStagedDiff).mockReturnValue('   ');
+    await expect(run()).rejects.toThrow('process.exit(1)');
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining('No staged changes'),
+    );
+  });
+
+  it('exits with code 1 when generateCommitMessage throws OllamaError', async () => {
+    vi.mocked(ollamaModule.generateCommitMessage).mockRejectedValue(
+      new OllamaError('Could not connect to Ollama'),
+    );
+    await expect(run()).rejects.toThrow('process.exit(1)');
+    expect(errorSpy).toHaveBeenCalledWith('Could not connect to Ollama');
+  });
+
+  it('exits with code 1 when generateCommitMessage throws a non-OllamaError', async () => {
+    vi.mocked(ollamaModule.generateCommitMessage).mockRejectedValue(
+      'raw string error',
+    );
+    await expect(run()).rejects.toThrow('process.exit(1)');
+    expect(errorSpy).toHaveBeenCalledWith('raw string error');
+  });
+
+  it('runs commit and returns when user accepts the message', async () => {
+    vi.mocked(promptModule.promptUser).mockResolvedValue('accept');
+    await run();
+    expect(gitModule.runCommit).toHaveBeenCalledWith('feat: add login');
     expect(exitSpy).not.toHaveBeenCalled();
   });
 
-  it("exits with the commit status code when git commit fails after accept", async () => {
-    vi.mocked(promptModule.promptUser).mockResolvedValue("accept");
+  it('exits with the commit status code when git commit fails after accept', async () => {
+    vi.mocked(promptModule.promptUser).mockResolvedValue('accept');
     vi.mocked(gitModule.runCommit).mockReturnValue(128);
-    await expect(run()).rejects.toThrow("process.exit(128)");
+    await expect(run()).rejects.toThrow('process.exit(128)');
   });
 
-  it("regenerates and then accepts on second prompt", async () => {
+  it('regenerates and then accepts on second prompt', async () => {
     vi.mocked(ollamaModule.generateCommitMessage)
-      .mockResolvedValueOnce("feat: initial")
-      .mockResolvedValueOnce("feat: regenerated");
+      .mockResolvedValueOnce('feat: initial')
+      .mockResolvedValueOnce('feat: regenerated');
     vi.mocked(promptModule.promptUser)
-      .mockResolvedValueOnce("regenerate")
-      .mockResolvedValueOnce("accept");
+      .mockResolvedValueOnce('regenerate')
+      .mockResolvedValueOnce('accept');
     vi.mocked(gitModule.runCommit).mockReturnValue(0);
 
     await run();
 
     expect(ollamaModule.generateCommitMessage).toHaveBeenCalledTimes(2);
-    expect(gitModule.runCommit).toHaveBeenCalledWith("feat: regenerated");
+    expect(gitModule.runCommit).toHaveBeenCalledWith('feat: regenerated');
   });
 
-  it("exits with code 1 when regeneration throws OllamaError", async () => {
+  it('exits with code 1 when regeneration throws OllamaError', async () => {
     vi.mocked(ollamaModule.generateCommitMessage)
-      .mockResolvedValueOnce("feat: initial")
-      .mockRejectedValueOnce(new OllamaError("offline"));
-    vi.mocked(promptModule.promptUser).mockResolvedValue("regenerate");
+      .mockResolvedValueOnce('feat: initial')
+      .mockRejectedValueOnce(new OllamaError('offline'));
+    vi.mocked(promptModule.promptUser).mockResolvedValue('regenerate');
 
-    await expect(run()).rejects.toThrow("process.exit(1)");
-    expect(errorSpy).toHaveBeenCalledWith("offline");
+    await expect(run()).rejects.toThrow('process.exit(1)');
+    expect(errorSpy).toHaveBeenCalledWith('offline');
   });
 
-  it("exits with code 1 when regeneration throws a non-OllamaError", async () => {
+  it('exits with code 1 when regeneration throws a non-OllamaError', async () => {
     vi.mocked(ollamaModule.generateCommitMessage)
-      .mockResolvedValueOnce("feat: initial")
-      .mockRejectedValueOnce("plain string failure");
-    vi.mocked(promptModule.promptUser).mockResolvedValue("regenerate");
+      .mockResolvedValueOnce('feat: initial')
+      .mockRejectedValueOnce('plain string failure');
+    vi.mocked(promptModule.promptUser).mockResolvedValue('regenerate');
 
-    await expect(run()).rejects.toThrow("process.exit(1)");
-    expect(errorSpy).toHaveBeenCalledWith("plain string failure");
+    await expect(run()).rejects.toThrow('process.exit(1)');
+    expect(errorSpy).toHaveBeenCalledWith('plain string failure');
   });
 
-  it("runs commit with edited message when user chooses edit", async () => {
-    vi.mocked(promptModule.promptUser).mockResolvedValue("edit");
-    vi.mocked(promptModule.editMessage).mockResolvedValue("fix: edited message");
+  it('runs commit with edited message when user chooses edit', async () => {
+    vi.mocked(promptModule.promptUser).mockResolvedValue('edit');
+    vi.mocked(promptModule.editMessage).mockResolvedValue(
+      'fix: edited message',
+    );
     vi.mocked(gitModule.runCommit).mockReturnValue(0);
 
     await run();
 
-    expect(promptModule.editMessage).toHaveBeenCalledWith("feat: add login");
-    expect(gitModule.runCommit).toHaveBeenCalledWith("fix: edited message");
+    expect(promptModule.editMessage).toHaveBeenCalledWith('feat: add login');
+    expect(gitModule.runCommit).toHaveBeenCalledWith('fix: edited message');
     expect(exitSpy).not.toHaveBeenCalled();
   });
 
-  it("exits with commit status code when git commit fails after edit", async () => {
-    vi.mocked(promptModule.promptUser).mockResolvedValue("edit");
-    vi.mocked(promptModule.editMessage).mockResolvedValue("fix: edited");
+  it('exits with commit status code when git commit fails after edit', async () => {
+    vi.mocked(promptModule.promptUser).mockResolvedValue('edit');
+    vi.mocked(promptModule.editMessage).mockResolvedValue('fix: edited');
     vi.mocked(gitModule.runCommit).mockReturnValue(1);
 
-    await expect(run()).rejects.toThrow("process.exit(1)");
+    await expect(run()).rejects.toThrow('process.exit(1)');
   });
 });

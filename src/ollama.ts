@@ -18,6 +18,29 @@ ${diff}
 </diff>`;
 }
 
+export async function getLocalModels(
+  tagsUrl: string,
+  fetchFn: typeof globalThis.fetch = globalThis.fetch,
+): Promise<string[]> {
+  let response: Response;
+  try {
+    response = await fetchFn(tagsUrl);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new OllamaError(
+      `Could not connect to Ollama: ${msg}. Make sure it is running with: ollama serve`,
+    );
+  }
+
+  if (!response.ok) {
+    throw new OllamaError(
+      `Ollama returned an error: ${response.status} ${response.statusText}`,
+    );
+  }
+
+  const data = (await response.json()) as { models: { name: string }[] };
+  return data.models.map((m) => m.name);
+}
 
 export async function generateCommitMessage(
   diff: string,
@@ -26,8 +49,10 @@ export async function generateCommitMessage(
 ): Promise<string> {
   const body = {
     model: config.model,
-    system: SYSTEM_PROMPT,
-    prompt: getUserPrompt(diff),
+    messages: [
+      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'user', content: getUserPrompt(diff) },
+    ],
     stream: false,
   };
 
@@ -62,11 +87,11 @@ export async function generateCommitMessage(
     );
   }
 
-  const data = (await response.json()) as { response: string };
+  const data = (await response.json()) as { message: { content: string } };
 
   if (config.debug) {
     console.error("\n[DEBUG] Raw response:\n", JSON.stringify(data, null, 2));
   }
 
-  return data.response.trim();
+  return data.message.content.trim();
 }
