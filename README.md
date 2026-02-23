@@ -1,4 +1,4 @@
-# aicommit
+# penmit
 
 AI-powered git commit message generator that uses [Ollama](https://ollama.com) to write conventional commit messages from your staged diff — locally or via Ollama Cloud.
 
@@ -31,7 +31,7 @@ Provider: Local - Model: llama3.1
 ## Installation
 
 ```bash
-npm install -g aicommit
+npm install -g penmit
 ```
 
 ## Quick Start

@@ -1,16 +1,17 @@
 {
-  "name": "aicommit",
+  "name": "penmit",
   "version": "1.0.0",
   "description": "AI-powered git commit message generator using Ollama — local or cloud",
   "type": "module",
   "bin": {
-    "aicommit": "./dist/index.js"
+    "aicommit": "dist/index.js"
   },
   "files": [
     "dist"
   ],
   "scripts": {
     "build": "tsup",
+    "prepublishOnly": "npm run build",
     "dev": "tsup --watch",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
@@ -32,7 +33,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/iammar7/aicommit.git"
+    "url": "git+https://github.com/iammar7/aicommit.git"
   },
   "homepage": "https://github.com/iammar7/aicommit#readme",
   "devDependencies": {
