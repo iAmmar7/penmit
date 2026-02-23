@@ -86,7 +86,7 @@ export async function selectFromList<T>(question: string, items: SelectItem<T>[]
 
 export async function promptUser(message: string): Promise<UserChoice> {
   console.log(`\nGenerated commit message:\n\n  ${message}\n`);
-  process.stdout.write('Accept (a), Regenerate (r), Edit (e), Esc/Ctrl+C to cancel: ');
+  process.stdout.write('Accept (a/Enter), Regenerate (r), Edit (e), Esc/Ctrl+C to cancel: ');
 
   return new Promise((resolve) => {
     process.stdin.resume();
@@ -108,7 +108,7 @@ export async function promptUser(message: string): Promise<UserChoice> {
         cancel();
       }
 
-      if (name === 'a') {
+      if (name === 'a' || name === 'return') {
         process.stdout.write('a\n');
         cleanup();
         resolve('accept');

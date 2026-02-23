@@ -62,6 +62,12 @@ describe('promptUser', () => {
     expect(await promise).toBe('accept');
   });
 
+  it("resolves 'accept' when Enter is pressed", async () => {
+    const promise = promptUser('feat: add login');
+    process.stdin.emit('keypress', '\r', { name: 'return' });
+    expect(await promise).toBe('accept');
+  });
+
   it("resolves 'regenerate' when 'r' is pressed", async () => {
     const promise = promptUser('feat: add login');
     process.stdin.emit('keypress', 'r', { name: 'r' });
