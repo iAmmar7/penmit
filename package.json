@@ -1,6 +1,6 @@
 {
   "name": "aicommit",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "AI-powered git commit message generator using Ollama — local or cloud",
   "type": "module",
   "bin": {
@@ -19,8 +19,7 @@
     "lint": "eslint src",
     "lint:fix": "eslint src --fix",
     "format": "prettier --check src",
-    "format:fix": "prettier --write src",
-    "prepublishOnly": "npm run build"
+    "format:fix": "prettier --write src"
   },
   "keywords": [
     "git",
