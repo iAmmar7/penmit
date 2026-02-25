@@ -1,18 +1,21 @@
 export type UserChoice = 'accept' | 'regenerate' | 'edit';
 
-export type Provider = 'local' | 'cloud';
+export type Provider = 'ollama' | 'anthropic';
+export type OllamaMode = 'local' | 'cloud';
 
 export interface Config {
-  ollamaUrl: string;
+  provider: Provider;
+  ollamaMode?: OllamaMode;
+  url: string;
   model: string;
   apiKey?: string;
   debug: boolean;
-  provider: Provider;
 }
 
 export interface ParsedArgs {
-  model?: string;
   provider?: Provider;
+  ollamaMode?: OllamaMode;
+  model?: string;
   help: boolean;
   version: boolean;
   setup: boolean;
@@ -20,6 +23,7 @@ export interface ParsedArgs {
 
 export interface UserConfig {
   provider?: Provider;
+  ollamaMode?: OllamaMode;
   model?: string;
   apiKey?: string;
 }

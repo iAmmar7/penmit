@@ -1,21 +1,40 @@
-import type { Config } from './types.js';
+import type { Config, OllamaMode } from './types.js';
 import { OllamaError } from './errors.js';
+import { SYSTEM_PROMPT, getUserPrompt } from './prompts.js';
 
-const SYSTEM_PROMPT =
-  'You are a git commit message generator. Output ONLY the commit message line — no explanation, no description, no bullet points, no markdown, no preamble.';
+export const OLLAMA_CHAT_PATH = '/api/chat';
+export const OLLAMA_TAGS_PATH = '/api/tags';
+export const LOCAL_OLLAMA_URL = `http://localhost:11434${OLLAMA_CHAT_PATH}`;
+export const CLOUD_OLLAMA_URL = `https://ollama.com${OLLAMA_CHAT_PATH}`;
+export const DEFAULT_CLOUD_MODEL = 'devstral-small-2:24b';
 
-function getUserPrompt(diff: string): string {
-  return `Write a single git commit message for the diff below using conventional commits format (feat, fix, chore, refactor, docs, style, test, etc).
+// OLLAMA_HOST is Ollama's own env var for configuring the server address.
+// The Ollama client (ollama run, ollama pull, etc.) also reads it to know where to connect.
+// Ref: https://github.com/ollama/ollama/blob/main/api/client.go
+function buildLocalOllamaUrl(env: Record<string, string | undefined>): string {
+  const host = env.OLLAMA_HOST;
+  if (!host) return LOCAL_OLLAMA_URL;
 
-Rules:
-- Output ONLY the commit message, nothing else
-- One line, no period at the end
-- No explanation, no bullet points, no numbering
-- Example output: feat: add user authentication
+  const base = host.includes('://') ? host : `http://${host}`;
+  const url = new URL(base);
 
-<diff>
-${diff}
-</diff>`;
+  // If user provided a custom path, use the URL as-is
+  if (url.pathname !== '/') return base.replace(/\/$/, '');
+
+  // Otherwise append the standard Ollama path
+  return `${base.replace(/\/$/, '')}${OLLAMA_CHAT_PATH}`;
+}
+
+export function buildOllamaChatUrl(
+  mode: OllamaMode,
+  env: Record<string, string | undefined> = process.env,
+): string {
+  if (mode === 'cloud') return CLOUD_OLLAMA_URL;
+  return buildLocalOllamaUrl(env);
+}
+
+export function buildOllamaTagsUrl(chatUrl: string): string {
+  return chatUrl.replace(OLLAMA_CHAT_PATH, OLLAMA_TAGS_PATH);
 }
 
 export async function getLocalModels(
@@ -70,7 +89,7 @@ export async function generateCommitMessage(
 
   let response: Response;
   try {
-    response = await fetchFn(config.ollamaUrl, {
+    response = await fetchFn(config.url, {
       method: 'POST',
       headers,
       body: JSON.stringify(body),

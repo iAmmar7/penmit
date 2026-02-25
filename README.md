@@ -6,7 +6,7 @@ AI-powered git commit message generator that uses [Ollama](https://ollama.com) t
 $ git add .
 $ aicommit
 
-Provider: Local - Model: llama3.1
+Provider: Local - Model: llama3.2
 ⠸ Generating commit message
 
   feat: add user authentication with JWT support
@@ -43,7 +43,7 @@ npm install -g penmit
 2. Pull a model (browse the [Ollama library](https://ollama.com/library) for all available models):
 
    ```bash
-   ollama pull llama3.1
+   ollama pull llama3.2
    ```
 
 3. Stage your changes and run:

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as readline from 'readline';
-import { promptUser, editMessage } from './prompt.js';
+import { promptUser, editMessage } from './tui.js';
 
 vi.mock('readline', async (importOriginal) => {
   const actual = await importOriginal<typeof import('readline')>();

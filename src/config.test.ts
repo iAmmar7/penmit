@@ -1,18 +1,8 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { homedir } from 'os';
 import { join } from 'path';
-import {
-  parseArgs,
-  buildConfig,
-  buildOllamaChatUrl,
-  buildOllamaTagsUrl,
-  getUserConfigPath,
-  LOCAL_OLLAMA_URL,
-  CLOUD_OLLAMA_URL,
-  OLLAMA_CHAT_PATH,
-  OLLAMA_TAGS_PATH,
-  DEFAULT_CLOUD_MODEL,
-} from './config.js';
+import { parseArgs, buildConfig, getUserConfigPath } from './config.js';
+import { LOCAL_OLLAMA_URL, CLOUD_OLLAMA_URL, OLLAMA_CHAT_PATH } from './ollama.js';
 
 describe('parseArgs', () => {
   it('returns defaults when no args given', () => {
@@ -48,11 +38,15 @@ describe('parseArgs', () => {
   });
 
   it('parses --local', () => {
-    expect(parseArgs(['--local']).provider).toBe('local');
+    const result = parseArgs(['--local']);
+    expect(result.provider).toBe('ollama');
+    expect(result.ollamaMode).toBe('local');
   });
 
   it('parses --cloud', () => {
-    expect(parseArgs(['--cloud']).provider).toBe('cloud');
+    const result = parseArgs(['--cloud']);
+    expect(result.provider).toBe('ollama');
+    expect(result.ollamaMode).toBe('cloud');
   });
 
   it('parses --setup', () => {
@@ -78,111 +72,102 @@ describe('parseArgs', () => {
   });
 });
 
-describe('buildOllamaChatUrl', () => {
-  it('returns local URL when provider is local and no OLLAMA_HOST', () => {
-    expect(buildOllamaChatUrl('local', {})).toBe(LOCAL_OLLAMA_URL);
-  });
-
-  it('returns cloud URL when provider is cloud', () => {
-    expect(buildOllamaChatUrl('cloud', {})).toBe(CLOUD_OLLAMA_URL);
-  });
-
-  it('uses OLLAMA_HOST with host:port for local', () => {
-    expect(buildOllamaChatUrl('local', { OLLAMA_HOST: 'localhost:8080' })).toBe(
-      `http://localhost:8080${OLLAMA_CHAT_PATH}`,
-    );
-  });
-
-  it('ignores OLLAMA_HOST for cloud', () => {
-    expect(buildOllamaChatUrl('cloud', { OLLAMA_HOST: 'localhost:8080' })).toBe(CLOUD_OLLAMA_URL);
-  });
-});
-
 describe('buildConfig', () => {
   it('builds local config correctly', () => {
-    const config = buildConfig('local', 'llama3.1', undefined, {});
-    expect(config.provider).toBe('local');
-    expect(config.ollamaUrl).toBe(LOCAL_OLLAMA_URL);
-    expect(config.model).toBe('llama3.1');
+    const config = buildConfig({ provider: 'ollama', ollamaMode: 'local', model: 'llama3.2' }, {});
+    expect(config.provider).toBe('ollama');
+    expect(config.ollamaMode).toBe('local');
+    expect(config.url).toBe(LOCAL_OLLAMA_URL);
+    expect(config.model).toBe('llama3.2');
     expect(config.apiKey).toBeUndefined();
     expect(config.debug).toBe(false);
   });
 
   it('builds cloud config correctly', () => {
-    const config = buildConfig('cloud', 'devstral-2', 'sk-test', {});
-    expect(config.provider).toBe('cloud');
-    expect(config.ollamaUrl).toBe(CLOUD_OLLAMA_URL);
+    const config = buildConfig(
+      { provider: 'ollama', ollamaMode: 'cloud', model: 'devstral-2', apiKey: 'sk-test' },
+      {},
+    );
+    expect(config.provider).toBe('ollama');
+    expect(config.ollamaMode).toBe('cloud');
+    expect(config.url).toBe(CLOUD_OLLAMA_URL);
     expect(config.model).toBe('devstral-2');
     expect(config.apiKey).toBe('sk-test');
   });
 
+  it('builds anthropic config correctly', () => {
+    const config = buildConfig(
+      { provider: 'anthropic', model: 'claude-sonnet-4-6', apiKey: 'sk-ant-test' },
+      {},
+    );
+    expect(config.provider).toBe('anthropic');
+    expect(config.ollamaMode).toBeUndefined();
+    expect(config.url).toBe('');
+    expect(config.model).toBe('claude-sonnet-4-6');
+    expect(config.apiKey).toBe('sk-ant-test');
+  });
+
   it('does not set apiKey for local even if apiKey arg is undefined', () => {
-    const config = buildConfig('local', 'llama3.1', undefined, {
-      OLLAMA_API_KEY: 'sk-test',
-    });
+    const config = buildConfig(
+      { provider: 'ollama', ollamaMode: 'local', model: 'llama3.2' },
+      {
+        OLLAMA_API_KEY: 'sk-test',
+      },
+    );
     expect(config.apiKey).toBeUndefined();
   });
 
   it('sets debug=true when DEBUG=1', () => {
-    expect(buildConfig('local', 'llama3.1', undefined, { DEBUG: '1' }).debug).toBe(true);
+    expect(
+      buildConfig({ provider: 'ollama', ollamaMode: 'local', model: 'llama3.2' }, { DEBUG: '1' })
+        .debug,
+    ).toBe(true);
   });
 
   it('sets debug=false when DEBUG is absent', () => {
-    expect(buildConfig('local', 'llama3.1', undefined, {}).debug).toBe(false);
+    expect(
+      buildConfig({ provider: 'ollama', ollamaMode: 'local', model: 'llama3.2' }, {}).debug,
+    ).toBe(false);
   });
 
   it('uses OLLAMA_HOST in local config', () => {
-    const config = buildConfig('local', 'llama3.1', undefined, {
-      OLLAMA_HOST: 'localhost:8080',
-    });
-    expect(config.ollamaUrl).toBe(`http://localhost:8080${OLLAMA_CHAT_PATH}`);
+    const config = buildConfig(
+      { provider: 'ollama', ollamaMode: 'local', model: 'llama3.2' },
+      {
+        OLLAMA_HOST: 'localhost:8080',
+      },
+    );
+    expect(config.url).toBe(`http://localhost:8080${OLLAMA_CHAT_PATH}`);
   });
 
   it('uses OLLAMA_HOST with full URL', () => {
-    const config = buildConfig('local', 'llama3.1', undefined, {
-      OLLAMA_HOST: 'http://192.168.1.5:11434',
-    });
-    expect(config.ollamaUrl).toBe(`http://192.168.1.5:11434${OLLAMA_CHAT_PATH}`);
+    const config = buildConfig(
+      { provider: 'ollama', ollamaMode: 'local', model: 'llama3.2' },
+      {
+        OLLAMA_HOST: 'http://192.168.1.5:11434',
+      },
+    );
+    expect(config.url).toBe(`http://192.168.1.5:11434${OLLAMA_CHAT_PATH}`);
   });
 
   it('uses OLLAMA_HOST with custom path as-is', () => {
-    const config = buildConfig('local', 'llama3.1', undefined, {
-      OLLAMA_HOST: 'http://myserver.com/ollama/api/chat',
-    });
-    expect(config.ollamaUrl).toBe('http://myserver.com/ollama/api/chat');
+    const config = buildConfig(
+      { provider: 'ollama', ollamaMode: 'local', model: 'llama3.2' },
+      {
+        OLLAMA_HOST: 'http://myserver.com/ollama/api/chat',
+      },
+    );
+    expect(config.url).toBe('http://myserver.com/ollama/api/chat');
   });
 
   it('ignores OLLAMA_HOST in cloud config', () => {
-    const config = buildConfig('cloud', 'devstral-2', 'sk-test', {
-      OLLAMA_HOST: 'localhost:8080',
-    });
-    expect(config.ollamaUrl).toBe(CLOUD_OLLAMA_URL);
-  });
-});
-
-describe('buildOllamaTagsUrl', () => {
-  it('replaces /api/chat with /api/tags', () => {
-    expect(buildOllamaTagsUrl(`http://localhost:11434${OLLAMA_CHAT_PATH}`)).toBe(
-      `http://localhost:11434${OLLAMA_TAGS_PATH}`,
+    const config = buildConfig(
+      { provider: 'ollama', ollamaMode: 'cloud', model: 'devstral-2', apiKey: 'sk-test' },
+      {
+        OLLAMA_HOST: 'localhost:8080',
+      },
     );
-  });
-
-  it('works with a custom host and port', () => {
-    expect(buildOllamaTagsUrl(`http://localhost:8080${OLLAMA_CHAT_PATH}`)).toBe(
-      `http://localhost:8080${OLLAMA_TAGS_PATH}`,
-    );
-  });
-
-  it('works with a remote host', () => {
-    expect(buildOllamaTagsUrl(`http://192.168.1.5:11434${OLLAMA_CHAT_PATH}`)).toBe(
-      `http://192.168.1.5:11434${OLLAMA_TAGS_PATH}`,
-    );
-  });
-
-  it('works with a custom path prefix', () => {
-    expect(buildOllamaTagsUrl('http://myserver.com/ollama/api/chat')).toBe(
-      'http://myserver.com/ollama/api/tags',
-    );
+    expect(config.url).toBe(CLOUD_OLLAMA_URL);
   });
 });
 
@@ -230,11 +215,5 @@ describe('getUserConfigPath', () => {
     expect(getUserConfigPath()).toBe(
       join(homedir(), 'AppData', 'Roaming', 'aicommit', 'config.json'),
     );
-  });
-});
-
-describe('DEFAULT_CLOUD_MODEL', () => {
-  it('is defined', () => {
-    expect(DEFAULT_CLOUD_MODEL).toBe('devstral-small-2:24b');
   });
 });

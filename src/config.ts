@@ -1,13 +1,8 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { homedir } from 'os';
 import { dirname, join } from 'path';
-import type { Config, ParsedArgs, Provider, UserConfig } from './types.js';
-
-export const OLLAMA_CHAT_PATH = '/api/chat';
-export const OLLAMA_TAGS_PATH = '/api/tags';
-export const LOCAL_OLLAMA_URL = `http://localhost:11434${OLLAMA_CHAT_PATH}`;
-export const CLOUD_OLLAMA_URL = `https://ollama.com${OLLAMA_CHAT_PATH}`;
-export const DEFAULT_CLOUD_MODEL = 'devstral-small-2:24b';
+import type { Config, OllamaMode, ParsedArgs, Provider, UserConfig } from './types.js';
+import { buildOllamaChatUrl } from './ollama.js';
 
 export function getUserConfigPath(): string {
   const home = homedir();
@@ -50,10 +45,15 @@ export function parseArgs(argv: string[]): ParsedArgs {
         result.version = true;
         break;
       case '--local':
-        result.provider = 'local';
+        result.provider = 'ollama';
+        result.ollamaMode = 'local';
         break;
       case '--cloud':
-        result.provider = 'cloud';
+        result.provider = 'ollama';
+        result.ollamaMode = 'cloud';
+        break;
+      case '--anthropic':
+        result.provider = 'anthropic';
         break;
       case '--setup':
         result.setup = true;
@@ -76,44 +76,20 @@ export function parseArgs(argv: string[]): ParsedArgs {
   return result;
 }
 
-// OLLAMA_HOST is Ollama's own env var for configuring the server address.
-// The Ollama client (ollama run, ollama pull, etc.) also reads it to know where to connect.
-// Ref: https://github.com/ollama/ollama/blob/main/api/client.go
-function buildLocalOllamaUrl(env: Record<string, string | undefined>): string {
-  const host = env.OLLAMA_HOST;
-  if (!host) return LOCAL_OLLAMA_URL;
-
-  const base = host.includes('://') ? host : `http://${host}`;
-  const url = new URL(base);
-
-  // If user provided a custom path, use the URL as-is
-  if (url.pathname !== '/') return base.replace(/\/$/, '');
-
-  // Otherwise append the standard Ollama path
-  return `${base.replace(/\/$/, '')}${OLLAMA_CHAT_PATH}`;
-}
-
-export function buildOllamaChatUrl(
-  provider: Provider,
-  env: Record<string, string | undefined> = process.env,
-): string {
-  if (provider === 'cloud') return CLOUD_OLLAMA_URL;
-  return buildLocalOllamaUrl(env);
-}
-
-export function buildOllamaTagsUrl(ollamaUrl: string): string {
-  return ollamaUrl.replace(OLLAMA_CHAT_PATH, OLLAMA_TAGS_PATH);
-}
-
 export function buildConfig(
-  provider: Provider,
-  model: string,
-  apiKey: string | undefined,
+  {
+    provider,
+    ollamaMode,
+    model,
+    apiKey,
+  }: { provider: Provider; ollamaMode?: OllamaMode; model: string; apiKey?: string },
   env: Record<string, string | undefined> = process.env,
 ): Config {
+  const resolvedMode = provider === 'ollama' ? (ollamaMode ?? 'local') : undefined;
   return {
     provider,
-    ollamaUrl: buildOllamaChatUrl(provider, env),
+    ollamaMode: resolvedMode,
+    url: provider === 'ollama' ? buildOllamaChatUrl(resolvedMode!, env) : '',
     model,
     apiKey,
     debug: env.DEBUG === '1',
