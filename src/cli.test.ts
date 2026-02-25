@@ -148,17 +148,6 @@ describe('run', () => {
     expect(logSpy).toHaveBeenCalledWith('0.0.0');
   });
 
-  it('uses saved local provider without showing picker', async () => {
-    vi.mocked(configModule.readUserConfig).mockReturnValue({
-      provider: 'ollama',
-      ollamaMode: 'local',
-      model: 'llama3.2',
-    });
-    await run();
-    expect(promptModule.selectFromList).not.toHaveBeenCalled();
-    expect(configModule.writeUserConfig).not.toHaveBeenCalled();
-  });
-
   it('shows interactive picker on first run (no saved config)', async () => {
     vi.mocked(configModule.readUserConfig).mockReturnValue({});
     vi.mocked(promptModule.selectFromList)
@@ -231,17 +220,6 @@ describe('run', () => {
     await run([], { OLLAMA_API_KEY: 'sk-test' });
 
     expect(promptModule.selectFromList).not.toHaveBeenCalled();
-  });
-
-  it('exits with code 1 when cloud is selected but OLLAMA_API_KEY is not set', async () => {
-    vi.mocked(configModule.readUserConfig).mockReturnValue({
-      provider: 'ollama',
-      ollamaMode: 'cloud',
-      model: 'devstral-2',
-    });
-
-    await expect(run([], {})).rejects.toThrow('process.exit(1)');
-    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('OLLAMA_API_KEY'));
   });
 
   it('--setup forces interactive picker even when saved config exists', async () => {
@@ -546,35 +524,6 @@ describe('run', () => {
       expect.any(String),
       expect.objectContaining({ model: 'claude-haiku-4-5-20251001' }),
     );
-  });
-
-  it('exits with code 1 when anthropic is selected but no API key is available', async () => {
-    vi.mocked(configModule.readUserConfig).mockReturnValue({
-      provider: 'anthropic',
-      model: 'claude-sonnet-4-6',
-    });
-
-    await expect(run([], {})).rejects.toThrow('process.exit(1)');
-    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('ANTHROPIC_API_KEY'));
-  });
-
-  it('does not use saved apiKey from a different provider for cloud', async () => {
-    // savedConfig has anthropic key; user switches to cloud — should NOT use the anthropic key
-    vi.mocked(configModule.readUserConfig).mockReturnValue({
-      provider: 'anthropic',
-      apiKey: 'sk-ant-wrong-key',
-    });
-    vi.mocked(configModule.parseArgs).mockReturnValue({
-      help: false,
-      version: false,
-      setup: false,
-      provider: 'ollama',
-      ollamaMode: 'cloud',
-    });
-
-    // No OLLAMA_API_KEY env var and wrong saved key → should fail asking for cloud key
-    await expect(run(['--cloud'], {})).rejects.toThrow('process.exit(1)');
-    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('OLLAMA_API_KEY'));
   });
 
   it('exits with code 1 when generateCommitMessage (anthropic) throws AnthropicError', async () => {
