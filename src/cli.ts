@@ -1,7 +1,14 @@
 import { existsSync, readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
-import { parseArgs, buildConfig, deleteUserConfig, getUserConfigPath, readUserConfig, writeUserConfig } from './config.js';
+import {
+  parseArgs,
+  buildConfig,
+  deleteUserConfig,
+  getUserConfigPath,
+  readUserConfig,
+  writeUserConfig,
+} from './config.js';
 import { GitError, LLMError } from './errors.js';
 import { getStagedDiff, runCommit } from './git.js';
 import {

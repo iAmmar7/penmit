@@ -18,7 +18,11 @@ vi.mock('./tui.js');
 vi.mock('./spinner.js');
 vi.mock('fs', async (importOriginal) => {
   const actual = await importOriginal<typeof import('fs')>();
-  return { ...actual, readFileSync: vi.fn(actual.readFileSync), existsSync: vi.fn(actual.existsSync) };
+  return {
+    ...actual,
+    readFileSync: vi.fn(actual.readFileSync),
+    existsSync: vi.fn(actual.existsSync),
+  };
 });
 
 const LOCAL_URL = 'http://localhost:11434/api/chat';
@@ -419,7 +423,12 @@ describe('run', () => {
 
       expect(promptModule.selectFromList).not.toHaveBeenCalled();
       expect(configModule.buildConfig).toHaveBeenCalledWith(
-        { provider: 'ollama', ollamaMode: 'cloud', model: 'devstral-small-2:24b', apiKey: 'sk-test' },
+        {
+          provider: 'ollama',
+          ollamaMode: 'cloud',
+          model: 'devstral-small-2:24b',
+          apiKey: 'sk-test',
+        },
         expect.any(Object),
       );
     });

@@ -36,7 +36,13 @@ export function deleteUserConfig(configPath = getUserConfigPath()): boolean {
 }
 
 export function parseArgs(argv: string[]): ParsedArgs {
-  const result: ParsedArgs = { help: false, version: false, setup: false, reset: false, yes: false };
+  const result: ParsedArgs = {
+    help: false,
+    version: false,
+    setup: false,
+    reset: false,
+    yes: false,
+  };
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
