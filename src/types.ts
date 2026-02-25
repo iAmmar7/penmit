@@ -1,6 +1,6 @@
 export type UserChoice = 'accept' | 'regenerate' | 'edit';
 
-export type Provider = 'ollama' | 'anthropic';
+export type Provider = 'ollama' | 'anthropic' | 'openai';
 export type OllamaMode = 'local' | 'cloud';
 
 export interface Config {

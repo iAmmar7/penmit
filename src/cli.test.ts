@@ -3,15 +3,17 @@ import * as configModule from './config.js';
 import * as gitModule from './git.js';
 import * as ollamaModule from './ollama.js';
 import * as anthropicModule from './anthropic.js';
+import * as openaiModule from './openai.js';
 import * as promptModule from './tui.js';
 import * as spinnerModule from './spinner.js';
 import { readFileSync } from 'fs';
-import { GitError, OllamaError, AnthropicError } from './errors.js';
+import { GitError, OllamaError, AnthropicError, OpenAIError } from './errors.js';
 
 vi.mock('./config.js');
 vi.mock('./git.js');
 vi.mock('./ollama.js');
 vi.mock('./anthropic.js');
+vi.mock('./openai.js');
 vi.mock('./tui.js');
 vi.mock('./spinner.js');
 vi.mock('fs', async (importOriginal) => {
@@ -80,6 +82,7 @@ describe('run', () => {
     vi.mocked(ollamaModule.getLocalModels).mockResolvedValue(['llama3.2']);
     vi.mocked(ollamaModule.generateCommitMessage).mockResolvedValue('feat: add login');
     vi.mocked(anthropicModule.generateCommitMessage).mockResolvedValue('feat: add login');
+    vi.mocked(openaiModule.generateCommitMessage).mockResolvedValue('feat: add login');
     vi.mocked(promptModule.promptUser).mockResolvedValue('accept');
     vi.mocked(promptModule.selectFromList).mockResolvedValue('local');
     vi.mocked(gitModule.runCommit).mockReturnValue(0);
@@ -544,6 +547,95 @@ describe('run', () => {
     });
     vi.mocked(anthropicModule.generateCommitMessage).mockRejectedValue(
       new AnthropicError('Invalid API key'),
+    );
+
+    await expect(run([], {})).rejects.toThrow('process.exit(1)');
+    expect(errorSpy).toHaveBeenCalledWith('Invalid API key');
+  });
+
+  // OpenAI provider
+  it('OPENAI_API_KEY env var triggers openai provider without picker', async () => {
+    vi.mocked(configModule.readUserConfig).mockReturnValue({});
+    vi.mocked(promptModule.selectFromList).mockResolvedValueOnce('codex-mini-latest');
+
+    await run([], { OPENAI_API_KEY: 'sk-openai-test' });
+
+    expect(promptModule.selectFromList).toHaveBeenCalledTimes(1); // model picker only
+    expect(configModule.buildConfig).toHaveBeenCalledWith(
+      {
+        provider: 'openai',
+        ollamaMode: undefined,
+        model: 'codex-mini-latest',
+        apiKey: 'sk-openai-test',
+      },
+      expect.any(Object),
+    );
+  });
+
+  it('--openai flag uses openai provider without provider picker', async () => {
+    vi.mocked(configModule.parseArgs).mockReturnValue({
+      help: false,
+      version: false,
+      setup: false,
+      provider: 'openai',
+    });
+    vi.mocked(configModule.readUserConfig).mockReturnValue({
+      provider: 'openai',
+      model: 'codex-mini-latest',
+      apiKey: 'sk-openai-saved',
+    });
+
+    await run(['--openai'], { OPENAI_API_KEY: 'sk-openai-test' });
+
+    expect(promptModule.selectFromList).not.toHaveBeenCalled();
+    expect(configModule.buildConfig).toHaveBeenCalledWith(
+      {
+        provider: 'openai',
+        ollamaMode: undefined,
+        model: 'codex-mini-latest',
+        apiKey: 'sk-openai-test',
+      },
+      expect.any(Object),
+    );
+  });
+
+  it('uses saved openai model silently', async () => {
+    vi.mocked(configModule.readUserConfig).mockReturnValue({
+      provider: 'openai',
+      model: 'gpt-4o',
+      apiKey: 'sk-openai-saved',
+    });
+
+    await run([], {});
+
+    expect(promptModule.selectFromList).not.toHaveBeenCalled();
+    expect(openaiModule.generateCommitMessage).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ model: 'gpt-4o' }),
+    );
+  });
+
+  it('prints OpenAI as provider label', async () => {
+    vi.mocked(configModule.readUserConfig).mockReturnValue({
+      provider: 'openai',
+      model: 'codex-mini-latest',
+      apiKey: 'sk-openai-saved',
+    });
+
+    await run([], {});
+
+    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('OpenAI'));
+    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('codex-mini-latest'));
+  });
+
+  it('exits with code 1 when generateCommitMessage (openai) throws OpenAIError', async () => {
+    vi.mocked(configModule.readUserConfig).mockReturnValue({
+      provider: 'openai',
+      model: 'codex-mini-latest',
+      apiKey: 'sk-openai-test',
+    });
+    vi.mocked(openaiModule.generateCommitMessage).mockRejectedValue(
+      new OpenAIError('Invalid API key'),
     );
 
     await expect(run([], {})).rejects.toThrow('process.exit(1)');

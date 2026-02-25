@@ -25,3 +25,10 @@ export class AnthropicError extends LLMError {
     this.name = 'AnthropicError';
   }
 }
+
+export class OpenAIError extends LLMError {
+  constructor(message: string) {
+    super(message);
+    this.name = 'OpenAIError';
+  }
+}

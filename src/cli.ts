@@ -10,12 +10,14 @@ import {
   buildOllamaTagsUrl,
 } from './ollama.js';
 import { generateCommitMessage as generateAnthropicMessage } from './anthropic.js';
+import { generateCommitMessage as generateOpenAIMessage } from './openai.js';
 import { promptUser, editMessage } from './tui.js';
 import { createSpinner } from './spinner.js';
 import {
   resolveProvider,
   resolveApiKey,
   resolveAnthropicModel,
+  resolveOpenAIModel,
   resolveOllamaModel,
 } from './resolve.js';
 import { HELP_TEXT } from './prompts.js';
@@ -34,16 +36,23 @@ function getVersion(): string {
 
 function getProviderLabel(provider: Provider, ollamaMode?: OllamaMode): string {
   if (provider === 'anthropic') return 'Anthropic';
+  if (provider === 'openai') return 'OpenAI';
   return ollamaMode === 'cloud' ? 'Ollama Cloud' : 'Local (Ollama)';
 }
+
+const generators: Record<
+  string,
+  (diff: string, config: ReturnType<typeof buildConfig>) => Promise<string>
+> = {
+  anthropic: generateAnthropicMessage,
+  openai: generateOpenAIMessage,
+  ollama: generateOllamaMessage,
+};
 
 async function generate(diff: string, config: ReturnType<typeof buildConfig>): Promise<string> {
   const spinner = createSpinner('Generating commit message');
   try {
-    const message =
-      config.provider === 'anthropic'
-        ? await generateAnthropicMessage(diff, config)
-        : await generateOllamaMessage(diff, config);
+    const message = await generators[config.provider](diff, config);
     spinner.stop();
     return message;
   } catch (err) {
@@ -92,18 +101,32 @@ export async function run(
 
   // Resolve API key (only for providers that require one)
   let apiKey: string | undefined;
-  if (provider === 'anthropic') {
-    apiKey = await resolveApiKey(
-      env.ANTHROPIC_API_KEY,
-      savedConfig.provider === 'anthropic' ? savedConfig.apiKey : undefined,
-      { label: 'Anthropic', envVarName: 'ANTHROPIC_API_KEY' },
-    );
-  } else if (ollamaMode === 'cloud') {
-    apiKey = await resolveApiKey(
-      env.OLLAMA_API_KEY,
-      savedConfig.ollamaMode === 'cloud' ? savedConfig.apiKey : undefined,
-      { label: 'Ollama Cloud', envVarName: 'OLLAMA_API_KEY' },
-    );
+  const providerKey = ollamaMode === 'cloud' ? 'ollama-cloud' : provider;
+  const apiKeyConfigs: Partial<
+    Record<string, { envVar: string; label: string; savedKey: string | undefined }>
+  > = {
+    anthropic: {
+      envVar: 'ANTHROPIC_API_KEY',
+      label: 'Anthropic',
+      savedKey: savedConfig.provider === 'anthropic' ? savedConfig.apiKey : undefined,
+    },
+    openai: {
+      envVar: 'OPENAI_API_KEY',
+      label: 'OpenAI',
+      savedKey: savedConfig.provider === 'openai' ? savedConfig.apiKey : undefined,
+    },
+    'ollama-cloud': {
+      envVar: 'OLLAMA_API_KEY',
+      label: 'Ollama Cloud',
+      savedKey: savedConfig.ollamaMode === 'cloud' ? savedConfig.apiKey : undefined,
+    },
+  };
+  const keyConf = apiKeyConfigs[providerKey];
+  if (keyConf) {
+    apiKey = await resolveApiKey(env[keyConf.envVar], keyConf.savedKey, {
+      label: keyConf.label,
+      envVarName: keyConf.envVar,
+    });
   }
 
   // Resolve model
@@ -112,6 +135,15 @@ export async function run(
   if (provider === 'anthropic') {
     try {
       const result = await resolveAnthropicModel(args, savedConfig);
+      model = result.model;
+      modelFromInteractive = result.fromInteractive;
+    } catch (err) {
+      console.error(err instanceof Error ? err.message : String(err));
+      process.exit(1);
+    }
+  } else if (provider === 'openai') {
+    try {
+      const result = await resolveOpenAIModel(args, savedConfig);
       model = result.model;
       modelFromInteractive = result.fromInteractive;
     } catch (err) {
@@ -136,7 +168,9 @@ export async function run(
 
   // Persist selection when interactive was used or a new API key was entered
   const apiKeyIsNew =
-    (ollamaMode === 'cloud' || provider === 'anthropic') && !savedConfig.apiKey && !!apiKey;
+    (ollamaMode === 'cloud' || provider === 'anthropic' || provider === 'openai') &&
+    !savedConfig.apiKey &&
+    !!apiKey;
   if (providerFromInteractive || modelFromInteractive || apiKeyIsNew) {
     const configToSave: UserConfig = { provider, model };
     if (provider === 'ollama') configToSave.ollamaMode = ollamaMode;

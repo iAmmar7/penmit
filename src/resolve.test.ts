@@ -2,11 +2,13 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as tuiModule from './tui.js';
 import * as ollamaModule from './ollama.js';
 import { ANTHROPIC_CUSTOM_MODEL } from './anthropic.js';
+import { OPENAI_CUSTOM_MODEL } from './openai.js';
 import { LLMError } from './errors.js';
 import {
   resolveProvider,
   resolveApiKey,
   resolveAnthropicModel,
+  resolveOpenAIModel,
   resolveOllamaModel,
 } from './resolve.js';
 import type { ParsedArgs, UserConfig } from './types.js';
@@ -88,6 +90,33 @@ describe('resolveProvider', () => {
     vi.mocked(tuiModule.selectFromList).mockResolvedValue('ollama-cloud');
     const result = await resolveProvider(noArgs, emptyConfig, {});
     expect(result).toEqual({ provider: 'ollama', ollamaMode: 'cloud', fromInteractive: true });
+  });
+
+  it('returns openai when OPENAI_API_KEY is set (no CLI flag)', async () => {
+    const result = await resolveProvider(noArgs, emptyConfig, { OPENAI_API_KEY: 'sk-openai' });
+    expect(result).toEqual({ provider: 'openai', fromInteractive: false });
+    expect(tuiModule.selectFromList).not.toHaveBeenCalled();
+  });
+
+  it('prefers ANTHROPIC_API_KEY over OPENAI_API_KEY when both are set', async () => {
+    const result = await resolveProvider(noArgs, emptyConfig, {
+      ANTHROPIC_API_KEY: 'sk-ant',
+      OPENAI_API_KEY: 'sk-openai',
+    });
+    expect(result.provider).toBe('anthropic');
+  });
+
+  it('returns openai from CLI flag', async () => {
+    const args: ParsedArgs = { ...noArgs, provider: 'openai' };
+    const result = await resolveProvider(args, emptyConfig, {});
+    expect(result).toEqual({ provider: 'openai', ollamaMode: undefined, fromInteractive: false });
+    expect(tuiModule.selectFromList).not.toHaveBeenCalled();
+  });
+
+  it('returns openai from interactive picker', async () => {
+    vi.mocked(tuiModule.selectFromList).mockResolvedValue('openai');
+    const result = await resolveProvider(noArgs, emptyConfig, {});
+    expect(result).toEqual({ provider: 'openai', fromInteractive: true });
   });
 });
 
@@ -231,6 +260,76 @@ describe('resolveAnthropicModel', () => {
     vi.mocked(tuiModule.selectFromList).mockResolvedValue(ANTHROPIC_CUSTOM_MODEL);
     vi.mocked(tuiModule.promptInput).mockResolvedValue('');
     await expect(resolveAnthropicModel(noArgs, emptyConfig)).rejects.toThrow('process.exit(1)');
+    expect(errorSpy).toHaveBeenCalledWith('Model name is required.');
+  });
+});
+
+describe('resolveOpenAIModel', () => {
+  let exitSpy: ReturnType<typeof vi.spyOn>;
+  let errorSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    vi.resetAllMocks();
+    exitSpy = vi.spyOn(process, 'exit').mockImplementation((code) => {
+      throw new Error(`process.exit(${code})`);
+    });
+    errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    exitSpy.mockRestore();
+    errorSpy.mockRestore();
+  });
+
+  it('returns args.model immediately without picker', async () => {
+    const args: ParsedArgs = { ...noArgs, model: 'codex-mini-latest' };
+    const result = await resolveOpenAIModel(args, emptyConfig);
+    expect(result).toEqual({ model: 'codex-mini-latest', fromInteractive: false });
+    expect(tuiModule.selectFromList).not.toHaveBeenCalled();
+  });
+
+  it('returns saved model when provider is openai and not --setup', async () => {
+    const saved: UserConfig = { provider: 'openai', model: 'gpt-4o' };
+    const result = await resolveOpenAIModel(noArgs, saved);
+    expect(result).toEqual({ model: 'gpt-4o', fromInteractive: false });
+    expect(tuiModule.selectFromList).not.toHaveBeenCalled();
+  });
+
+  it('does not use saved model when --setup is set', async () => {
+    const args: ParsedArgs = { ...noArgs, setup: true };
+    const saved: UserConfig = { provider: 'openai', model: 'gpt-4o' };
+    vi.mocked(tuiModule.selectFromList).mockResolvedValue('codex-mini-latest');
+    const result = await resolveOpenAIModel(args, saved);
+    expect(tuiModule.selectFromList).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({ model: 'codex-mini-latest', fromInteractive: true });
+  });
+
+  it('does not use saved model when saved provider is not openai', async () => {
+    const saved: UserConfig = { provider: 'anthropic', model: 'claude-sonnet-4-6' };
+    vi.mocked(tuiModule.selectFromList).mockResolvedValue('codex-mini-latest');
+    await resolveOpenAIModel(noArgs, saved);
+    expect(tuiModule.selectFromList).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows interactive picker when no saved model and returns selected', async () => {
+    vi.mocked(tuiModule.selectFromList).mockResolvedValue('gpt-4o-mini');
+    const result = await resolveOpenAIModel(noArgs, emptyConfig);
+    expect(tuiModule.selectFromList).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({ model: 'gpt-4o-mini', fromInteractive: true });
+  });
+
+  it('prompts for custom model name when OPENAI_CUSTOM_MODEL is selected', async () => {
+    vi.mocked(tuiModule.selectFromList).mockResolvedValue(OPENAI_CUSTOM_MODEL);
+    vi.mocked(tuiModule.promptInput).mockResolvedValue('o4-mini');
+    const result = await resolveOpenAIModel(noArgs, emptyConfig);
+    expect(tuiModule.promptInput).toHaveBeenCalledWith('Model name: ');
+    expect(result).toEqual({ model: 'o4-mini', fromInteractive: true });
+  });
+
+  it('calls process.exit(1) when custom model input is empty', async () => {
+    vi.mocked(tuiModule.selectFromList).mockResolvedValue(OPENAI_CUSTOM_MODEL);
+    vi.mocked(tuiModule.promptInput).mockResolvedValue('');
+    await expect(resolveOpenAIModel(noArgs, emptyConfig)).rejects.toThrow('process.exit(1)');
     expect(errorSpy).toHaveBeenCalledWith('Model name is required.');
   });
 });

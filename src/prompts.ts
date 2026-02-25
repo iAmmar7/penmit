@@ -28,12 +28,14 @@ Options:
   --local              Use local Ollama for this run
   --cloud              Use Ollama Cloud for this run
   --anthropic          Use Anthropic (Claude) for this run
+  --openai             Use OpenAI (Codex/GPT) for this run
   --setup              Re-run the setup wizard to change saved defaults
   -v, --version        Print version
   -h, --help           Show this help
 
 Environment variables:
   ANTHROPIC_API_KEY    Use Anthropic Claude (sets provider to anthropic automatically)
+  OPENAI_API_KEY       Use OpenAI (sets provider to openai automatically)
   OLLAMA_API_KEY       Use Ollama Cloud (sets provider to cloud automatically)
   OLLAMA_HOST          Custom local Ollama host (default: localhost:11434)
   DEBUG=1              Print request/response debug info
@@ -42,8 +44,10 @@ Examples:
   aicommit
   aicommit --model mistral
   aicommit --anthropic --model claude-haiku-4-5-20251001
+  aicommit --openai --model codex-mini-latest
   aicommit --cloud --model devstral-2
   aicommit --setup
   ANTHROPIC_API_KEY=sk-ant-... aicommit
+  OPENAI_API_KEY=sk-... aicommit
   OLLAMA_API_KEY=sk-... aicommit
 `.trim();

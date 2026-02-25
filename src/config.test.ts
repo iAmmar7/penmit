@@ -49,6 +49,14 @@ describe('parseArgs', () => {
     expect(result.ollamaMode).toBe('cloud');
   });
 
+  it('parses --anthropic', () => {
+    expect(parseArgs(['--anthropic']).provider).toBe('anthropic');
+  });
+
+  it('parses --openai', () => {
+    expect(parseArgs(['--openai']).provider).toBe('openai');
+  });
+
   it('parses --setup', () => {
     expect(parseArgs(['--setup']).setup).toBe(true);
   });
@@ -105,6 +113,19 @@ describe('buildConfig', () => {
     expect(config.url).toBe('');
     expect(config.model).toBe('claude-sonnet-4-6');
     expect(config.apiKey).toBe('sk-ant-test');
+  });
+
+  it('builds openai config correctly', () => {
+    const config = buildConfig(
+      { provider: 'openai', model: 'codex-mini-latest', apiKey: 'sk-openai-test' },
+      {},
+    );
+    expect(config.provider).toBe('openai');
+    expect(config.ollamaMode).toBeUndefined();
+    expect(config.url).toBe('');
+    expect(config.model).toBe('codex-mini-latest');
+    expect(config.apiKey).toBe('sk-openai-test');
+    expect(config.debug).toBe(false);
   });
 
   it('does not set apiKey for local even if apiKey arg is undefined', () => {

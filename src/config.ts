@@ -55,6 +55,9 @@ export function parseArgs(argv: string[]): ParsedArgs {
       case '--anthropic':
         result.provider = 'anthropic';
         break;
+      case '--openai':
+        result.provider = 'openai';
+        break;
       case '--setup':
         result.setup = true;
         break;

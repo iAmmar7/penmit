@@ -1,10 +1,11 @@
 import { ANTHROPIC_MODELS, ANTHROPIC_CUSTOM_MODEL } from './anthropic.js';
 import { DEFAULT_CLOUD_MODEL, getLocalModels } from './ollama.js';
+import { OPENAI_MODELS, OPENAI_CUSTOM_MODEL } from './openai.js';
 import { selectFromList, promptInput } from './tui.js';
 import { LLMError } from './errors.js';
 import type { OllamaMode, ParsedArgs, Provider, UserConfig } from './types.js';
 
-type ProviderPickerChoice = 'ollama-local' | 'ollama-cloud' | 'anthropic';
+type ProviderPickerChoice = 'ollama-local' | 'ollama-cloud' | 'anthropic' | 'openai';
 
 export async function resolveProvider(
   args: ParsedArgs,
@@ -17,6 +18,9 @@ export async function resolveProvider(
   }
   if (env.ANTHROPIC_API_KEY) {
     return { provider: 'anthropic', fromInteractive: false };
+  }
+  if (env.OPENAI_API_KEY) {
+    return { provider: 'openai', fromInteractive: false };
   }
   if (env.OLLAMA_API_KEY) {
     return { provider: 'ollama', ollamaMode: 'cloud', fromInteractive: false };
@@ -33,8 +37,10 @@ export async function resolveProvider(
     { label: 'Local', value: 'ollama-local', hint: 'private, uses your Ollama instance' },
     { label: 'Cloud', value: 'ollama-cloud', hint: 'Ollama Cloud, requires OLLAMA_API_KEY' },
     { label: 'Anthropic', value: 'anthropic', hint: 'Claude models, requires ANTHROPIC_API_KEY' },
+    { label: 'OpenAI', value: 'openai', hint: 'Codex & GPT models, requires OPENAI_API_KEY' },
   ]);
   if (choice === 'anthropic') return { provider: 'anthropic', fromInteractive: true };
+  if (choice === 'openai') return { provider: 'openai', fromInteractive: true };
   if (choice === 'ollama-cloud')
     return { provider: 'ollama', ollamaMode: 'cloud', fromInteractive: true };
   return { provider: 'ollama', ollamaMode: 'local', fromInteractive: true };
@@ -82,6 +88,34 @@ export async function resolveAnthropicModel(
   ]);
 
   if (selected === ANTHROPIC_CUSTOM_MODEL) {
+    const model = await promptInput('Model name: ');
+    if (!model) {
+      console.error('Model name is required.');
+      process.exit(1);
+    }
+    return { model, fromInteractive: true };
+  }
+
+  return { model: selected, fromInteractive: true };
+}
+
+export async function resolveOpenAIModel(
+  args: ParsedArgs,
+  savedConfig: UserConfig,
+): Promise<{ model: string; fromInteractive: boolean }> {
+  if (args.model) {
+    return { model: args.model, fromInteractive: false };
+  }
+  if (!args.setup && savedConfig.provider === 'openai' && savedConfig.model) {
+    return { model: savedConfig.model, fromInteractive: false };
+  }
+
+  const selected = await selectFromList<string>('Model:', [
+    ...OPENAI_MODELS.map((m) => ({ label: m.name, value: m.name, hint: m.hint })),
+    { label: 'Enter model name...', value: OPENAI_CUSTOM_MODEL },
+  ]);
+
+  if (selected === OPENAI_CUSTOM_MODEL) {
     const model = await promptInput('Model name: ');
     if (!model) {
       console.error('Model name is required.');
