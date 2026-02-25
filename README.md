@@ -25,6 +25,8 @@ Provider: Local (Ollama) - Model: llama3.2
 - **Setup wizard** - remembers your provider and model preference
 - **Zero runtime dependencies** - a single binary with no `node_modules` at runtime
 
+> **Note:** The quality of the generated commit message depends entirely on the model you choose. Smaller or less capable models may produce vague, overly long, or incorrectly formatted messages. If the output looks off, try regenerating or switch to a more capable model.
+
 ## Requirements
 
 - **Node.js** >= 22
