@@ -3,7 +3,12 @@ import * as tuiModule from './tui.js';
 import * as ollamaModule from './ollama.js';
 import { ANTHROPIC_CUSTOM_MODEL } from './anthropic.js';
 import { LLMError } from './errors.js';
-import { resolveProvider, resolveApiKey, resolveAnthropicModel, resolveOllamaModel } from './resolve.js';
+import {
+  resolveProvider,
+  resolveApiKey,
+  resolveAnthropicModel,
+  resolveOllamaModel,
+} from './resolve.js';
 import type { ParsedArgs, UserConfig } from './types.js';
 
 vi.mock('./tui.js');
@@ -23,7 +28,11 @@ describe('resolveProvider', () => {
   it('returns CLI flag provider immediately without interactive', async () => {
     const args: ParsedArgs = { ...noArgs, provider: 'anthropic' };
     const result = await resolveProvider(args, emptyConfig, {});
-    expect(result).toEqual({ provider: 'anthropic', ollamaMode: undefined, fromInteractive: false });
+    expect(result).toEqual({
+      provider: 'anthropic',
+      ollamaMode: undefined,
+      fromInteractive: false,
+    });
     expect(tuiModule.selectFromList).not.toHaveBeenCalled();
   });
 

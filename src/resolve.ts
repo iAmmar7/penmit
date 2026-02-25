@@ -35,7 +35,8 @@ export async function resolveProvider(
     { label: 'Anthropic', value: 'anthropic', hint: 'Claude models, requires ANTHROPIC_API_KEY' },
   ]);
   if (choice === 'anthropic') return { provider: 'anthropic', fromInteractive: true };
-  if (choice === 'ollama-cloud') return { provider: 'ollama', ollamaMode: 'cloud', fromInteractive: true };
+  if (choice === 'ollama-cloud')
+    return { provider: 'ollama', ollamaMode: 'cloud', fromInteractive: true };
   return { provider: 'ollama', ollamaMode: 'local', fromInteractive: true };
 }
 

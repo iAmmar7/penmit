@@ -116,8 +116,7 @@ describe('generateCommitMessage (Anthropic)', () => {
   });
 
   it('throws AnthropicError with error message on non-ok response with body', async () => {
-    const fetchFn = async () =>
-      makeResponse({ error: { message: 'Invalid API key' } }, false, 401);
+    const fetchFn = async () => makeResponse({ error: { message: 'Invalid API key' } }, false, 401);
     const err = await generateCommitMessage('diff', baseConfig, fetchFn as typeof fetch).catch(
       (e) => e,
     );
@@ -145,8 +144,7 @@ describe('generateCommitMessage (Anthropic)', () => {
 
   it('logs request body and response to console.error in debug mode', async () => {
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    const fetchFn = async () =>
-      makeResponse({ content: [{ type: 'text', text: 'feat: debug' }] });
+    const fetchFn = async () => makeResponse({ content: [{ type: 'text', text: 'feat: debug' }] });
     await generateCommitMessage('diff', { ...baseConfig, debug: true }, fetchFn as typeof fetch);
     expect(spy).toHaveBeenCalledTimes(2);
     spy.mockRestore();

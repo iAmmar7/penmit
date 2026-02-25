@@ -77,7 +77,12 @@ export function parseArgs(argv: string[]): ParsedArgs {
 }
 
 export function buildConfig(
-  { provider, ollamaMode, model, apiKey }: { provider: Provider; ollamaMode?: OllamaMode; model: string; apiKey?: string },
+  {
+    provider,
+    ollamaMode,
+    model,
+    apiKey,
+  }: { provider: Provider; ollamaMode?: OllamaMode; model: string; apiKey?: string },
   env: Record<string, string | undefined> = process.env,
 ): Config {
   const resolvedMode = provider === 'ollama' ? (ollamaMode ?? 'local') : undefined;

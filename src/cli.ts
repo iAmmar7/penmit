@@ -32,7 +32,6 @@ function getVersion(): string {
   }
 }
 
-
 function getProviderLabel(provider: Provider, ollamaMode?: OllamaMode): string {
   if (provider === 'anthropic') return 'Anthropic';
   return ollamaMode === 'cloud' ? 'Ollama Cloud' : 'Local (Ollama)';

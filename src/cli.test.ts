@@ -483,7 +483,12 @@ describe('run', () => {
 
     expect(promptModule.selectFromList).toHaveBeenCalledTimes(1); // model picker only
     expect(configModule.buildConfig).toHaveBeenCalledWith(
-      { provider: 'anthropic', ollamaMode: undefined, model: 'claude-sonnet-4-6', apiKey: 'sk-ant-test' },
+      {
+        provider: 'anthropic',
+        ollamaMode: undefined,
+        model: 'claude-sonnet-4-6',
+        apiKey: 'sk-ant-test',
+      },
       expect.any(Object),
     );
   });
@@ -505,7 +510,12 @@ describe('run', () => {
 
     expect(promptModule.selectFromList).not.toHaveBeenCalled();
     expect(configModule.buildConfig).toHaveBeenCalledWith(
-      { provider: 'anthropic', ollamaMode: undefined, model: 'claude-sonnet-4-6', apiKey: 'sk-ant-test' },
+      {
+        provider: 'anthropic',
+        ollamaMode: undefined,
+        model: 'claude-sonnet-4-6',
+        apiKey: 'sk-ant-test',
+      },
       expect.any(Object),
     );
   });

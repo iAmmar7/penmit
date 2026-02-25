@@ -84,7 +84,10 @@ describe('buildConfig', () => {
   });
 
   it('builds cloud config correctly', () => {
-    const config = buildConfig({ provider: 'ollama', ollamaMode: 'cloud', model: 'devstral-2', apiKey: 'sk-test' }, {});
+    const config = buildConfig(
+      { provider: 'ollama', ollamaMode: 'cloud', model: 'devstral-2', apiKey: 'sk-test' },
+      {},
+    );
     expect(config.provider).toBe('ollama');
     expect(config.ollamaMode).toBe('cloud');
     expect(config.url).toBe(CLOUD_OLLAMA_URL);
@@ -93,7 +96,10 @@ describe('buildConfig', () => {
   });
 
   it('builds anthropic config correctly', () => {
-    const config = buildConfig({ provider: 'anthropic', model: 'claude-sonnet-4-6', apiKey: 'sk-ant-test' }, {});
+    const config = buildConfig(
+      { provider: 'anthropic', model: 'claude-sonnet-4-6', apiKey: 'sk-ant-test' },
+      {},
+    );
     expect(config.provider).toBe('anthropic');
     expect(config.ollamaMode).toBeUndefined();
     expect(config.url).toBe('');
@@ -155,9 +161,12 @@ describe('buildConfig', () => {
   });
 
   it('ignores OLLAMA_HOST in cloud config', () => {
-    const config = buildConfig({ provider: 'ollama', ollamaMode: 'cloud', model: 'devstral-2', apiKey: 'sk-test' }, {
-      OLLAMA_HOST: 'localhost:8080',
-    });
+    const config = buildConfig(
+      { provider: 'ollama', ollamaMode: 'cloud', model: 'devstral-2', apiKey: 'sk-test' },
+      {
+        OLLAMA_HOST: 'localhost:8080',
+      },
+    );
     expect(config.url).toBe(CLOUD_OLLAMA_URL);
   });
 });
