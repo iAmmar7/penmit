@@ -52,7 +52,11 @@ describe('generateCommitMessage (OpenAI)', () => {
       body = JSON.parse(opts.body as string) as Record<string, unknown>;
       return makeResponse({ output_text: 'feat: test' });
     };
-    await generateCommitMessage('diff', { ...baseConfig, model: 'gpt-4o' }, fetchFn as typeof fetch);
+    await generateCommitMessage(
+      'diff',
+      { ...baseConfig, model: 'gpt-4o' },
+      fetchFn as typeof fetch,
+    );
     expect(body.model).toBe('gpt-4o');
   });
 
