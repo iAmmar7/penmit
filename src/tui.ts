@@ -137,6 +137,45 @@ export async function promptInput(question: string): Promise<string> {
   return answer.trim();
 }
 
+export async function confirm(question: string): Promise<boolean> {
+  process.stdout.write(`${question} [y/N] `);
+
+  return new Promise((resolve) => {
+    readline.emitKeypressEvents(process.stdin);
+    if (process.stdin.isTTY) process.stdin.setRawMode(true);
+    process.stdin.resume();
+
+    function cleanup(): void {
+      process.stdin.removeListener('keypress', onKey);
+      if (process.stdin.isTTY) process.stdin.setRawMode(false);
+      process.stdin.pause();
+    }
+
+    function onKey(_: string, key: readline.Key): void {
+      if (!key) return;
+      const name = key.name?.toLowerCase();
+
+      if (name === 'escape' || (key.ctrl && name === 'c')) {
+        process.stdout.write('\n');
+        cleanup();
+        cancel();
+      }
+
+      if (name === 'y') {
+        process.stdout.write('y\n');
+        cleanup();
+        resolve(true);
+      } else if (name === 'n' || name === 'return') {
+        process.stdout.write('n\n');
+        cleanup();
+        resolve(false);
+      }
+    }
+
+    process.stdin.on('keypress', onKey);
+  });
+}
+
 export async function editMessage(original: string): Promise<string> {
   const rl = readline.createInterface({
     input: process.stdin,

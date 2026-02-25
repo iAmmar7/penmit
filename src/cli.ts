@@ -1,7 +1,14 @@
-import { readFileSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
-import { parseArgs, buildConfig, readUserConfig, writeUserConfig } from './config.js';
+import {
+  parseArgs,
+  buildConfig,
+  deleteUserConfig,
+  getUserConfigPath,
+  readUserConfig,
+  writeUserConfig,
+} from './config.js';
 import { GitError, LLMError } from './errors.js';
 import { getStagedDiff, runCommit } from './git.js';
 import {
@@ -11,7 +18,7 @@ import {
 } from './ollama.js';
 import { generateCommitMessage as generateAnthropicMessage } from './anthropic.js';
 import { generateCommitMessage as generateOpenAIMessage } from './openai.js';
-import { promptUser, editMessage } from './tui.js';
+import { promptUser, editMessage, confirm } from './tui.js';
 import { createSpinner } from './spinner.js';
 import {
   resolveProvider,
@@ -80,6 +87,24 @@ export async function run(
 
   if (args.version) {
     console.log(getVersion());
+    return;
+  }
+
+  if (args.reset) {
+    const configPath = getUserConfigPath();
+    if (!existsSync(configPath)) {
+      console.log('No saved settings found - nothing to reset.');
+      return;
+    }
+    if (!args.yes) {
+      const ok = await confirm(`Reset saved settings? This will delete ${configPath}.`);
+      if (!ok) {
+        console.log('Aborted.');
+        return;
+      }
+    }
+    deleteUserConfig(configPath);
+    console.log('Settings reset. Run aicommit to configure again.');
     return;
   }
 

@@ -5,8 +5,8 @@ import { SYSTEM_PROMPT, getUserPrompt } from './prompts.js';
 const OPENAI_API_URL = 'https://api.openai.com/v1/responses';
 
 export const OPENAI_MODELS: { name: string; hint: string }[] = [
-  { name: 'codex-mini-latest', hint: 'fast Codex model — recommended' },
-  { name: 'gpt-4o', hint: 'balanced — most capable' },
+  { name: 'codex-mini-latest', hint: 'fast Codex model - recommended' },
+  { name: 'gpt-4o', hint: 'balanced - most capable' },
   { name: 'gpt-4o-mini', hint: 'fast & cheap' },
 ];
 

@@ -1,6 +1,6 @@
 // LLM prompts
 export const SYSTEM_PROMPT =
-  'You are a git commit message generator. Output ONLY the commit message line — no explanation, no description, no bullet points, no markdown, no preamble.';
+  'You are a git commit message generator. Output ONLY the commit message line - no explanation, no description, no bullet points, no markdown, no preamble.';
 
 export function getUserPrompt(diff: string): string {
   return `Write a single git commit message for the diff below using conventional commits format (feat, fix, chore, refactor, docs, style, test, etc).
@@ -18,7 +18,7 @@ ${diff}
 
 // CLI help text
 export const HELP_TEXT = `
-aicommit — AI-powered git commit message generator
+aicommit - AI-powered git commit message generator
 
 Usage:
   aicommit [options]
@@ -30,6 +30,8 @@ Options:
   --anthropic          Use Anthropic (Claude) for this run
   --openai             Use OpenAI (Codex/GPT) for this run
   --setup              Re-run the setup wizard to change saved defaults
+  --reset              Delete saved settings and return to defaults
+  -y, --yes            Skip confirmation prompt (use with --reset)
   -v, --version        Print version
   -h, --help           Show this help
 
@@ -47,6 +49,8 @@ Examples:
   aicommit --openai --model codex-mini-latest
   aicommit --cloud --model devstral-2
   aicommit --setup
+  aicommit --reset
+  aicommit --reset --yes
   ANTHROPIC_API_KEY=sk-ant-... aicommit
   OPENAI_API_KEY=sk-... aicommit
   OLLAMA_API_KEY=sk-... aicommit

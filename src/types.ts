@@ -19,6 +19,8 @@ export interface ParsedArgs {
   help: boolean;
   version: boolean;
   setup: boolean;
+  reset: boolean;
+  yes: boolean;
 }
 
 export interface UserConfig {

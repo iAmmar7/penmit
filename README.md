@@ -1,6 +1,6 @@
 # penmit
 
-AI-powered git commit message generator that uses [Ollama](https://ollama.com) to write conventional commit messages from your staged diff — locally or via Ollama Cloud.
+AI-powered git commit message generator that uses [Ollama](https://ollama.com) to write conventional commit messages from your staged diff - locally or via Ollama Cloud.
 
 ```text
 $ git add .
@@ -16,17 +16,17 @@ Provider: Local - Model: llama3.2
 
 ## Features
 
-- **Local-first** — runs entirely on your machine with any Ollama model, no data leaves your system
-- **Cloud support** — use Ollama Cloud by setting `OLLAMA_API_KEY`; the key is stored locally on your machine and is only sent to Ollama Cloud to authenticate requests
-- **Interactive prompt** — accept, regenerate, or edit the message before committing
-- **Conventional commits** — output follows the `type: description` format
-- **Setup wizard** — remembers your provider and model preference
-- **Zero runtime dependencies** — a single binary with no `node_modules` at runtime
+- **Local-first** - runs entirely on your machine with any Ollama model, no data leaves your system
+- **Cloud support** - use Ollama Cloud by setting `OLLAMA_API_KEY`; the key is stored locally on your machine and is only sent to Ollama Cloud to authenticate requests
+- **Interactive prompt** - accept, regenerate, or edit the message before committing
+- **Conventional commits** - output follows the `type: description` format
+- **Setup wizard** - remembers your provider and model preference
+- **Zero runtime dependencies** - a single binary with no `node_modules` at runtime
 
 ## Requirements
 
 - **Node.js** >= 22
-- **Ollama** (for local mode) — [install from ollama.com](https://ollama.com/download)
+- **Ollama** (for local mode) - [install from ollama.com](https://ollama.com/download)
 
 ## Installation
 
@@ -38,7 +38,7 @@ npm install -g penmit
 
 ### Local mode
 
-1. Install and start Ollama — follow the [official Ollama installation guide](https://ollama.com/download).
+1. Install and start Ollama - follow the [official Ollama installation guide](https://ollama.com/download).
 
 2. Pull a model (browse the [Ollama library](https://ollama.com/library) for all available models):
 

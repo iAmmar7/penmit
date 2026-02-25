@@ -70,6 +70,20 @@ describe('generateCommitMessage (OpenAI)', () => {
     expect(headers['Authorization']).toBe('Bearer sk-test');
   });
 
+  it('sends empty Bearer token when apiKey is undefined', async () => {
+    let headers: Record<string, string> = {};
+    const fetchFn = async (_: string, opts: RequestInit) => {
+      headers = opts.headers as Record<string, string>;
+      return makeResponse({ output_text: 'feat: test' });
+    };
+    await generateCommitMessage(
+      'diff',
+      { ...baseConfig, apiKey: undefined },
+      fetchFn as typeof fetch,
+    );
+    expect(headers['Authorization']).toBe('Bearer ');
+  });
+
   it('sends instructions as a top-level string field (not messages)', async () => {
     let body: Record<string, unknown> = {};
     const fetchFn = async (_: string, opts: RequestInit) => {

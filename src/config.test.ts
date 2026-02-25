@@ -1,7 +1,15 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { homedir } from 'os';
+import { homedir, tmpdir } from 'os';
 import { join } from 'path';
-import { parseArgs, buildConfig, getUserConfigPath } from './config.js';
+import { mkdtempSync, writeFileSync, readFileSync, existsSync, rmSync } from 'fs';
+import {
+  parseArgs,
+  buildConfig,
+  getUserConfigPath,
+  readUserConfig,
+  writeUserConfig,
+  deleteUserConfig,
+} from './config.js';
 import { LOCAL_OLLAMA_URL, CLOUD_OLLAMA_URL, OLLAMA_CHAT_PATH } from './ollama.js';
 
 describe('parseArgs', () => {
@@ -10,6 +18,8 @@ describe('parseArgs', () => {
       help: false,
       version: false,
       setup: false,
+      reset: false,
+      yes: false,
     });
   });
 
@@ -59,6 +69,18 @@ describe('parseArgs', () => {
 
   it('parses --setup', () => {
     expect(parseArgs(['--setup']).setup).toBe(true);
+  });
+
+  it('parses --reset', () => {
+    expect(parseArgs(['--reset']).reset).toBe(true);
+  });
+
+  it('parses --yes', () => {
+    expect(parseArgs(['--yes']).yes).toBe(true);
+  });
+
+  it('parses -y shorthand', () => {
+    expect(parseArgs(['-y']).yes).toBe(true);
   });
 
   it('parses combined flags', () => {
@@ -236,5 +258,54 @@ describe('getUserConfigPath', () => {
     expect(getUserConfigPath()).toBe(
       join(homedir(), 'AppData', 'Roaming', 'aicommit', 'config.json'),
     );
+  });
+});
+
+describe('readUserConfig', () => {
+  it('reads and parses a valid config file', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'aicommit-test-'));
+    const configPath = join(dir, 'config.json');
+    writeFileSync(configPath, JSON.stringify({ provider: 'ollama', model: 'llama3.2' }), 'utf8');
+    expect(readUserConfig(configPath)).toEqual({ provider: 'ollama', model: 'llama3.2' });
+    rmSync(dir, { recursive: true });
+  });
+
+  it('returns empty object when file does not exist', () => {
+    expect(readUserConfig('/nonexistent/aicommit-path/config.json')).toEqual({});
+  });
+
+  it('returns empty object when file contains invalid JSON', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'aicommit-test-'));
+    const configPath = join(dir, 'config.json');
+    writeFileSync(configPath, 'not valid json', 'utf8');
+    expect(readUserConfig(configPath)).toEqual({});
+    rmSync(dir, { recursive: true });
+  });
+});
+
+describe('writeUserConfig', () => {
+  it('creates nested directories and writes formatted JSON', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'aicommit-test-'));
+    const configPath = join(dir, 'nested', 'config.json');
+    const config = { provider: 'anthropic' as const, model: 'claude-sonnet-4-6' };
+    writeUserConfig(config, configPath);
+    const written = readFileSync(configPath, 'utf8');
+    expect(JSON.parse(written)).toEqual(config);
+    rmSync(dir, { recursive: true });
+  });
+});
+
+describe('deleteUserConfig', () => {
+  it('returns false when file does not exist', () => {
+    expect(deleteUserConfig('/nonexistent/aicommit-path/config.json')).toBe(false);
+  });
+
+  it('deletes file and returns true when file exists', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'aicommit-test-'));
+    const configPath = join(dir, 'config.json');
+    writeFileSync(configPath, '{}', 'utf8');
+    expect(deleteUserConfig(configPath)).toBe(true);
+    expect(existsSync(configPath)).toBe(false);
+    rmSync(dir, { recursive: true });
   });
 });

@@ -62,6 +62,20 @@ describe('generateCommitMessage (Anthropic)', () => {
     expect(headers['x-api-key']).toBe('sk-ant-test');
   });
 
+  it('sends empty x-api-key when apiKey is undefined', async () => {
+    let headers: Record<string, string> = {};
+    const fetchFn = async (_: string, opts: RequestInit) => {
+      headers = opts.headers as Record<string, string>;
+      return makeResponse({ content: [{ type: 'text', text: 'feat: test' }] });
+    };
+    await generateCommitMessage(
+      'diff',
+      { ...baseConfig, apiKey: undefined },
+      fetchFn as typeof fetch,
+    );
+    expect(headers['x-api-key']).toBe('');
+  });
+
   it('sends anthropic-version header', async () => {
     let headers: Record<string, string> = {};
     const fetchFn = async (_: string, opts: RequestInit) => {

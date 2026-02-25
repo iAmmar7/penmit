@@ -19,7 +19,7 @@ vi.mock('./ollama.js', async (importOriginal) => {
   return { ...actual, getLocalModels: vi.fn() };
 });
 
-const noArgs: ParsedArgs = { help: false, version: false, setup: false };
+const noArgs: ParsedArgs = { help: false, version: false, setup: false, reset: false, yes: false };
 const emptyConfig: UserConfig = {};
 
 describe('resolveProvider', () => {

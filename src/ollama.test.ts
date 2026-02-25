@@ -136,6 +136,15 @@ describe('generateCommitMessage', () => {
     expect(err.message).toContain('503');
   });
 
+  it('throws OllamaError when response body has no message.content string', async () => {
+    const fetchFn = async () => makeResponse({ message: { content: 42 } });
+    const err = await generateCommitMessage('diff', baseConfig, fetchFn as typeof fetch).catch(
+      (e) => e,
+    );
+    expect(err).toBeInstanceOf(OllamaError);
+    expect(err.message).toContain('missing "message.content"');
+  });
+
   it('logs request body and response to console.error in debug mode', async () => {
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const fetchFn = async () => makeResponse({ message: { content: 'feat: debug' } });
@@ -246,5 +255,12 @@ describe('getLocalModels', () => {
       throw 'string error';
     };
     await expect(getLocalModels(TAGS_URL, fetchFn as typeof fetch)).rejects.toThrow(OllamaError);
+  });
+
+  it('throws OllamaError when response body has no models array', async () => {
+    const fetchFn = async () => makeResponse({ not_models: 'wrong' });
+    const err = await getLocalModels(TAGS_URL, fetchFn as typeof fetch).catch((e) => e);
+    expect(err).toBeInstanceOf(OllamaError);
+    expect(err.message).toContain('missing "models" list');
   });
 });

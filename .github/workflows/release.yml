@@ -23,7 +23,7 @@ jobs:
         with:
           node-version: 24
           cache: npm
-          # Must be explicit — triggers setup-node to write .npmrc for auth
+          # Must be explicit - triggers setup-node to write .npmrc for auth
           registry-url: 'https://registry.npmjs.org'
 
       - name: Install dependencies

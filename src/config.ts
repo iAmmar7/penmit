@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import { homedir } from 'os';
 import { dirname, join } from 'path';
 import type { Config, OllamaMode, ParsedArgs, Provider, UserConfig } from './types.js';
@@ -29,8 +29,20 @@ export function writeUserConfig(config: UserConfig, configPath = getUserConfigPa
   writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n', 'utf8');
 }
 
+export function deleteUserConfig(configPath = getUserConfigPath()): boolean {
+  if (!existsSync(configPath)) return false;
+  rmSync(configPath);
+  return true;
+}
+
 export function parseArgs(argv: string[]): ParsedArgs {
-  const result: ParsedArgs = { help: false, version: false, setup: false };
+  const result: ParsedArgs = {
+    help: false,
+    version: false,
+    setup: false,
+    reset: false,
+    yes: false,
+  };
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
@@ -60,6 +72,13 @@ export function parseArgs(argv: string[]): ParsedArgs {
         break;
       case '--setup':
         result.setup = true;
+        break;
+      case '--reset':
+        result.reset = true;
+        break;
+      case '--yes':
+      case '-y':
+        result.yes = true;
         break;
       case '--model':
       case '-m': {

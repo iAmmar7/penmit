@@ -6,8 +6,8 @@ const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 const ANTHROPIC_VERSION = '2023-06-01';
 
 export const ANTHROPIC_MODELS: { name: string; hint: string }[] = [
-  { name: 'claude-sonnet-4-6', hint: 'balanced — recommended' },
-  { name: 'claude-haiku-4-5-20251001', hint: 'fast & cheap — free tier friendly' },
+  { name: 'claude-sonnet-4-6', hint: 'balanced - recommended' },
+  { name: 'claude-haiku-4-5-20251001', hint: 'fast & cheap - free tier friendly' },
   { name: 'claude-opus-4-6', hint: 'most capable' },
 ];
 
