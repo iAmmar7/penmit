@@ -206,17 +206,14 @@ export async function run(
 
   const maxLength = args.maxLength ?? savedConfig.maxLength ?? DEFAULT_MAX_COMMIT_LENGTH;
 
-  // Persist selection when interactive was used or a new API key was entered
-  const apiKeyIsNew =
-    (ollamaMode === 'cloud' || provider === 'anthropic' || provider === 'openai') &&
-    !savedConfig.apiKey &&
-    !!apiKey;
-  if (
+  // Persist selection when interactive was used, a new API key was entered, or maxLength was set
+  const shouldSave =
     providerFromInteractive ||
     modelFromInteractive ||
-    apiKeyIsNew ||
-    args.maxLength !== undefined
-  ) {
+    (!savedConfig.apiKey && !!apiKey) ||
+    args.maxLength !== undefined;
+
+  if (shouldSave) {
     const configToSave: UserConfig = { provider, model };
     if (provider === 'ollama') configToSave.ollamaMode = ollamaMode;
     if (apiKey !== undefined) configToSave.apiKey = apiKey;
