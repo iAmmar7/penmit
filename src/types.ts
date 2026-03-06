@@ -9,7 +9,6 @@ export interface Config {
   url: string;
   model: string;
   apiKey?: string;
-  debug: boolean;
   maxLength: number;
 }
 

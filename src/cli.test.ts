@@ -63,18 +63,20 @@ describe('run', () => {
     vi.mocked(ollamaModule.buildOllamaChatUrl).mockReturnValue(LOCAL_URL);
     vi.mocked(ollamaModule.buildOllamaTagsUrl).mockReturnValue(TAGS_URL);
     // Dynamic mock: return a config using the provider/ollamaMode/model args passed in
-    vi.mocked(configModule.buildConfig).mockImplementation(({ provider, ollamaMode, model }) => ({
-      provider,
-      ollamaMode: provider === 'ollama' ? ollamaMode : undefined,
-      url:
-        provider === 'ollama'
-          ? ollamaMode === 'cloud'
-            ? 'https://ollama.com/api/chat'
-            : LOCAL_URL
-          : '',
-      model: model as string,
-      debug: false,
-    }));
+    vi.mocked(configModule.buildConfig).mockImplementation(
+      (_env, { provider, ollamaMode, model, maxLength }) => ({
+        provider,
+        ollamaMode: provider === 'ollama' ? ollamaMode : undefined,
+        url:
+          provider === 'ollama'
+            ? ollamaMode === 'cloud'
+              ? 'https://ollama.com/api/chat'
+              : LOCAL_URL
+            : '',
+        model: model as string,
+        maxLength: maxLength ?? 72,
+      }),
+    );
 
     vi.mocked(promptModule.promptInput).mockResolvedValue('');
     vi.mocked(promptModule.confirm).mockResolvedValue(true);
@@ -109,7 +111,7 @@ describe('run', () => {
         throw new Error('Unknown option: --bad');
       });
       await expect(run(['--bad'])).rejects.toThrow('process.exit(1)');
-      expect(errorSpy).toHaveBeenCalledWith('Error: Unknown option: --bad');
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('Error: Unknown option: --bad'));
     });
 
     it('exits with code 1 when parseArgs throws a non-Error', async () => {
@@ -117,7 +119,7 @@ describe('run', () => {
         throw 'plain string thrown';
       });
       await expect(run(['--bad'])).rejects.toThrow('process.exit(1)');
-      expect(errorSpy).toHaveBeenCalledWith('Error: plain string thrown');
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('Error: plain string thrown'));
     });
 
     it('prints help text and returns when --help is passed', async () => {
@@ -240,7 +242,7 @@ describe('run', () => {
         url: 'https://ollama.com/api/chat',
         model: 'devstral-2',
         apiKey: 'sk-test',
-        debug: false,
+        maxLength: 72,
       });
 
       await run(['--cloud'], { OLLAMA_API_KEY: 'sk-test' });
@@ -257,7 +259,8 @@ describe('run', () => {
         url: 'https://ollama.com/api/chat',
         model: 'devstral-small-2:24b',
         apiKey: 'sk-test',
-        debug: false,
+
+        maxLength: 72,
       });
 
       await run([], { OLLAMA_API_KEY: 'sk-test' });
@@ -335,8 +338,8 @@ describe('run', () => {
 
       expect(promptModule.selectFromList).not.toHaveBeenCalled();
       expect(configModule.buildConfig).toHaveBeenCalledWith(
-        { provider: 'ollama', ollamaMode: 'local', model: 'codellama', apiKey: undefined },
         expect.any(Object),
+        expect.objectContaining({ provider: 'ollama', ollamaMode: 'local', model: 'codellama', apiKey: undefined }),
       );
       expect(configModule.writeUserConfig).not.toHaveBeenCalled();
     });
@@ -350,20 +353,21 @@ describe('run', () => {
         url: 'https://ollama.com/api/chat',
         model: 'devstral-small-2:24b',
         apiKey: 'sk-test',
-        debug: false,
+
+        maxLength: 72,
       });
 
       await run([], { OLLAMA_API_KEY: 'sk-test' });
 
       expect(promptModule.selectFromList).not.toHaveBeenCalled();
       expect(configModule.buildConfig).toHaveBeenCalledWith(
-        {
+        expect.any(Object),
+        expect.objectContaining({
           provider: 'ollama',
           ollamaMode: 'cloud',
           model: 'devstral-small-2:24b',
           apiKey: 'sk-test',
-        },
-        expect.any(Object),
+        }),
       );
     });
 
@@ -389,7 +393,7 @@ describe('run', () => {
       );
 
       await expect(run()).rejects.toThrow('process.exit(1)');
-      expect(errorSpy).toHaveBeenCalledWith('Could not connect to Ollama');
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('Could not connect to Ollama'));
     });
 
     it('exits with code 1 when getLocalModels throws a non-OllamaError', async () => {
@@ -400,7 +404,7 @@ describe('run', () => {
       vi.mocked(ollamaModule.getLocalModels).mockRejectedValue('raw error');
 
       await expect(run()).rejects.toThrow('process.exit(1)');
-      expect(errorSpy).toHaveBeenCalledWith('raw error');
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('raw error'));
     });
   });
 
@@ -413,13 +417,13 @@ describe('run', () => {
 
       expect(promptModule.selectFromList).toHaveBeenCalledTimes(1); // model picker only
       expect(configModule.buildConfig).toHaveBeenCalledWith(
-        {
+        expect.any(Object),
+        expect.objectContaining({
           provider: 'anthropic',
           ollamaMode: undefined,
           model: 'claude-sonnet-4-6',
           apiKey: 'sk-ant-test',
-        },
-        expect.any(Object),
+        }),
       );
     });
 
@@ -435,13 +439,13 @@ describe('run', () => {
 
       expect(promptModule.selectFromList).not.toHaveBeenCalled();
       expect(configModule.buildConfig).toHaveBeenCalledWith(
-        {
+        expect.any(Object),
+        expect.objectContaining({
           provider: 'anthropic',
           ollamaMode: undefined,
           model: 'claude-sonnet-4-6',
           apiKey: 'sk-ant-test',
-        },
-        expect.any(Object),
+        }),
       );
     });
 
@@ -472,7 +476,7 @@ describe('run', () => {
       );
 
       await expect(run([], {})).rejects.toThrow('process.exit(1)');
-      expect(errorSpy).toHaveBeenCalledWith('Invalid API key');
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('Invalid API key'));
     });
   });
 
@@ -485,13 +489,13 @@ describe('run', () => {
 
       expect(promptModule.selectFromList).toHaveBeenCalledTimes(1); // model picker only
       expect(configModule.buildConfig).toHaveBeenCalledWith(
-        {
+        expect.any(Object),
+        expect.objectContaining({
           provider: 'openai',
           ollamaMode: undefined,
           model: 'codex-mini-latest',
           apiKey: 'sk-openai-test',
-        },
-        expect.any(Object),
+        }),
       );
     });
 
@@ -507,13 +511,13 @@ describe('run', () => {
 
       expect(promptModule.selectFromList).not.toHaveBeenCalled();
       expect(configModule.buildConfig).toHaveBeenCalledWith(
-        {
+        expect.any(Object),
+        expect.objectContaining({
           provider: 'openai',
           ollamaMode: undefined,
           model: 'codex-mini-latest',
           apiKey: 'sk-openai-test',
-        },
-        expect.any(Object),
+        }),
       );
     });
 
@@ -557,7 +561,7 @@ describe('run', () => {
       );
 
       await expect(run([], {})).rejects.toThrow('process.exit(1)');
-      expect(errorSpy).toHaveBeenCalledWith('Invalid API key');
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('Invalid API key'));
     });
   });
 
@@ -573,7 +577,7 @@ describe('run', () => {
         throw new GitError('git not found');
       });
       await expect(run()).rejects.toThrow('process.exit(1)');
-      expect(errorSpy).toHaveBeenCalledWith('git not found');
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('git not found'));
     });
 
     it('exits with code 1 when getStagedDiff throws a non-GitError', async () => {
@@ -581,7 +585,7 @@ describe('run', () => {
         throw 'spawn failure';
       });
       await expect(run()).rejects.toThrow('process.exit(1)');
-      expect(errorSpy).toHaveBeenCalledWith('spawn failure');
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('spawn failure'));
     });
 
     it('exits with code 1 when diff is empty', async () => {
@@ -595,13 +599,13 @@ describe('run', () => {
         new OllamaError('Could not connect to Ollama'),
       );
       await expect(run()).rejects.toThrow('process.exit(1)');
-      expect(errorSpy).toHaveBeenCalledWith('Could not connect to Ollama');
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('Could not connect to Ollama'));
     });
 
     it('exits with code 1 when generateCommitMessage throws a non-OllamaError', async () => {
       vi.mocked(ollamaModule.generateCommitMessage).mockRejectedValue('raw string error');
       await expect(run()).rejects.toThrow('process.exit(1)');
-      expect(errorSpy).toHaveBeenCalledWith('raw string error');
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('raw string error'));
     });
 
     it('runs commit and returns when user accepts the message', async () => {
@@ -639,7 +643,7 @@ describe('run', () => {
       vi.mocked(promptModule.promptUser).mockResolvedValue('regenerate');
 
       await expect(run()).rejects.toThrow('process.exit(1)');
-      expect(errorSpy).toHaveBeenCalledWith('offline');
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('offline'));
     });
 
     it('exits with code 1 when regeneration throws a non-OllamaError', async () => {
@@ -649,7 +653,7 @@ describe('run', () => {
       vi.mocked(promptModule.promptUser).mockResolvedValue('regenerate');
 
       await expect(run()).rejects.toThrow('process.exit(1)');
-      expect(errorSpy).toHaveBeenCalledWith('plain string failure');
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('plain string failure'));
     });
 
     it('runs commit with edited message when user chooses edit', async () => {
@@ -673,13 +677,80 @@ describe('run', () => {
     });
   });
 
+  describe('commit message length enforcement', () => {
+    it('truncates long commit messages at word boundary', async () => {
+      const longMessage = 'feat: this is a very long commit message that exceeds the default seventy-two character limit significantly';
+      vi.mocked(ollamaModule.generateCommitMessage).mockResolvedValue(longMessage);
+      vi.mocked(promptModule.promptUser).mockResolvedValue('accept');
+      vi.mocked(gitModule.runCommit).mockReturnValue(0);
+
+      await run();
+
+      const committedMsg = vi.mocked(gitModule.runCommit).mock.calls[0][0];
+      expect(committedMsg.length).toBeLessThanOrEqual(72);
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('truncated'));
+    });
+
+    it('does not truncate messages within the limit', async () => {
+      const shortMessage = 'feat: add login';
+      vi.mocked(ollamaModule.generateCommitMessage).mockResolvedValue(shortMessage);
+      vi.mocked(promptModule.promptUser).mockResolvedValue('accept');
+      vi.mocked(gitModule.runCommit).mockReturnValue(0);
+
+      await run();
+
+      expect(gitModule.runCommit).toHaveBeenCalledWith('feat: add login');
+    });
+
+    it('respects custom --max-length from args', async () => {
+      vi.mocked(configModule.parseArgs).mockReturnValue({ ...DEFAULT_ARGS, maxLength: 30 });
+      vi.mocked(ollamaModule.generateCommitMessage).mockResolvedValue('feat: a message longer than thirty chars here');
+      vi.mocked(promptModule.promptUser).mockResolvedValue('accept');
+      vi.mocked(gitModule.runCommit).mockReturnValue(0);
+
+      await run(['--max-length', '30']);
+
+      const committedMsg = vi.mocked(gitModule.runCommit).mock.calls[0][0];
+      expect(committedMsg.length).toBeLessThanOrEqual(30);
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('30'));
+    });
+
+    it('uses saved maxLength from config when no arg provided', async () => {
+      vi.mocked(configModule.readUserConfig).mockReturnValue({
+        provider: 'ollama',
+        ollamaMode: 'local',
+        model: 'llama3.2',
+        maxLength: 50,
+      });
+
+      await run();
+
+      expect(configModule.buildConfig).toHaveBeenCalledWith(
+        expect.any(Object),
+        expect.objectContaining({ maxLength: 50 }),
+      );
+    });
+
+    it('saves maxLength to config when --max-length is provided', async () => {
+      vi.mocked(configModule.parseArgs).mockReturnValue({ ...DEFAULT_ARGS, maxLength: 60 });
+      vi.mocked(promptModule.promptUser).mockResolvedValue('accept');
+      vi.mocked(gitModule.runCommit).mockReturnValue(0);
+
+      await run(['--max-length', '60']);
+
+      expect(configModule.writeUserConfig).toHaveBeenCalledWith(
+        expect.objectContaining({ maxLength: 60 }),
+      );
+    });
+  });
+
   describe('provider / model resolution errors', () => {
     it('exits with code 1 when resolveProvider throws an Error', async () => {
       vi.mocked(configModule.readUserConfig).mockReturnValue({});
       vi.mocked(promptModule.selectFromList).mockRejectedValue(new Error('picker cancelled'));
 
       await expect(run()).rejects.toThrow('process.exit(1)');
-      expect(errorSpy).toHaveBeenCalledWith('picker cancelled');
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('picker cancelled'));
     });
 
     it('exits with code 1 when resolveProvider throws a non-Error', async () => {
@@ -687,7 +758,7 @@ describe('run', () => {
       vi.mocked(promptModule.selectFromList).mockRejectedValue('plain string failure');
 
       await expect(run()).rejects.toThrow('process.exit(1)');
-      expect(errorSpy).toHaveBeenCalledWith('plain string failure');
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('plain string failure'));
     });
 
     it('exits with code 1 when resolveAnthropicModel throws an Error', async () => {
@@ -697,7 +768,7 @@ describe('run', () => {
       await expect(run([], { ANTHROPIC_API_KEY: 'sk-ant-test' })).rejects.toThrow(
         'process.exit(1)',
       );
-      expect(errorSpy).toHaveBeenCalledWith('model picker failed');
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('model picker failed'));
     });
 
     it('exits with code 1 when resolveAnthropicModel throws a non-Error', async () => {
@@ -707,7 +778,7 @@ describe('run', () => {
       await expect(run([], { ANTHROPIC_API_KEY: 'sk-ant-test' })).rejects.toThrow(
         'process.exit(1)',
       );
-      expect(errorSpy).toHaveBeenCalledWith('raw anthropic error');
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('raw anthropic error'));
     });
 
     it('exits with code 1 when resolveOpenAIModel throws an Error', async () => {
@@ -717,7 +788,7 @@ describe('run', () => {
       await expect(run([], { OPENAI_API_KEY: 'sk-openai-test' })).rejects.toThrow(
         'process.exit(1)',
       );
-      expect(errorSpy).toHaveBeenCalledWith('model picker failed');
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('model picker failed'));
     });
 
     it('exits with code 1 when resolveOpenAIModel throws a non-Error', async () => {
@@ -727,7 +798,7 @@ describe('run', () => {
       await expect(run([], { OPENAI_API_KEY: 'sk-openai-test' })).rejects.toThrow(
         'process.exit(1)',
       );
-      expect(errorSpy).toHaveBeenCalledWith('raw openai error');
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('raw openai error'));
     });
   });
 });

@@ -18,7 +18,7 @@ const baseConfig: Config = {
   ollamaMode: 'local',
   url: 'http://localhost:11434/api/chat',
   model: 'llama3.2',
-  debug: false,
+  maxLength: 72,
 };
 
 function makeResponse(body: unknown, ok = true, status = 200): Response {
@@ -145,12 +145,14 @@ describe('generateCommitMessage', () => {
     expect(err.message).toContain('missing "message.content"');
   });
 
-  it('logs request body and response to console.error in debug mode', async () => {
+  it('logs request body and response to stderr when DEBUG=1', async () => {
+    process.env.DEBUG = '1';
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const fetchFn = async () => makeResponse({ message: { content: 'feat: debug' } });
-    await generateCommitMessage('diff', { ...baseConfig, debug: true }, fetchFn as typeof fetch);
+    await generateCommitMessage('diff', baseConfig, fetchFn as typeof fetch);
     expect(spy).toHaveBeenCalledTimes(2);
     spy.mockRestore();
+    delete process.env.DEBUG;
   });
 });
 

@@ -1,6 +1,7 @@
 import type { Config } from './types.js';
 import { OpenAIError } from './errors.js';
 import { SYSTEM_PROMPT, getUserPrompt } from './prompts.js';
+import { log } from './logger.js';
 
 const OPENAI_API_URL = 'https://api.openai.com/v1/responses';
 
@@ -25,9 +26,7 @@ export async function generateCommitMessage(
     store: false,
   };
 
-  if (config.debug) {
-    console.error('\n[DEBUG] OpenAI request body:\n', JSON.stringify(body, null, 2));
-  }
+  log.debug('\n[DEBUG] OpenAI request body:\n', JSON.stringify(body, null, 2));
 
   let response: Response;
   try {
@@ -57,9 +56,7 @@ export async function generateCommitMessage(
     output?: Array<{ content?: Array<{ type: string; text: string }> }>;
   };
 
-  if (config.debug) {
-    console.error('\n[DEBUG] OpenAI response:\n', JSON.stringify(data, null, 2));
-  }
+  log.debug('\n[DEBUG] OpenAI response:\n', JSON.stringify(data, null, 2));
 
   const text = data?.output_text ?? data?.output?.[0]?.content?.[0]?.text;
   if (typeof text !== 'string') {

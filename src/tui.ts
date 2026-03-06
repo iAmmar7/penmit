@@ -1,4 +1,5 @@
 import * as readline from 'readline';
+import { colors } from './logger.js';
 import type { UserChoice } from './types.js';
 
 function cancel(): never {
@@ -27,13 +28,13 @@ export async function selectFromList<T>(question: string, items: SelectItem<T>[]
     if (!isFirst) {
       process.stdout.write(`\x1b[${totalLines}A`);
     }
-    process.stdout.write(`\r\x1b[K${question}\n`);
+    process.stdout.write(`\r${colors.clearLine}${question}\n`);
     for (let i = 0; i < items.length; i++) {
       const isCurrent = i === selected;
-      const cursor = isCurrent ? '\x1b[36m❯\x1b[0m' : ' ';
-      const label = isCurrent ? `\x1b[1m${items[i].label}\x1b[0m` : items[i].label;
-      const hint = items[i].hint ? `  \x1b[2m— ${items[i].hint}\x1b[0m` : '';
-      process.stdout.write(`\r\x1b[K  ${cursor} ${label}${hint}\n`);
+      const cursor = isCurrent ? `${colors.cyan}❯${colors.reset}` : ' ';
+      const label = isCurrent ? `${colors.bold}${items[i].label}${colors.reset}` : items[i].label;
+      const hint = items[i].hint ? `  ${colors.dim}— ${items[i].hint}${colors.reset}` : '';
+      process.stdout.write(`\r${colors.clearLine}  ${cursor} ${label}${hint}\n`);
     }
   }
 
@@ -41,7 +42,7 @@ export async function selectFromList<T>(question: string, items: SelectItem<T>[]
     readline.emitKeypressEvents(process.stdin);
     process.stdin.setRawMode(true);
     process.stdin.resume();
-    process.stdout.write('\x1b[?25l'); // hide cursor
+    process.stdout.write(colors.hideCursor); // hide cursor
 
     render(true);
 
@@ -49,7 +50,7 @@ export async function selectFromList<T>(question: string, items: SelectItem<T>[]
       process.stdin.removeListener('keypress', onKey);
       process.stdin.setRawMode(false);
       process.stdin.pause();
-      process.stdout.write('\x1b[?25h'); // show cursor
+      process.stdout.write(colors.showCursor); // show cursor
     }
 
     function onKey(_: string, key: readline.Key): void {
@@ -71,9 +72,9 @@ export async function selectFromList<T>(question: string, items: SelectItem<T>[]
         cleanup();
         // Collapse menu to a single summary line
         process.stdout.write(`\x1b[${totalLines}A`);
-        process.stdout.write(`\r\x1b[K${question} \x1b[36m${chosen.label}\x1b[0m\n`);
+        process.stdout.write(`\r${colors.clearLine}${question} ${colors.cyan}${chosen.label}${colors.reset}\n`);
         for (let i = 0; i < items.length; i++) {
-          process.stdout.write(`\r\x1b[K\n`);
+          process.stdout.write(`\r${colors.clearLine}\n`);
         }
         process.stdout.write(`\x1b[${items.length}A`);
         resolve(chosen.value);

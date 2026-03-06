@@ -3,6 +3,7 @@ import { DEFAULT_CLOUD_MODEL, getLocalModels } from './ollama.js';
 import { OPENAI_MODELS, OPENAI_CUSTOM_MODEL } from './openai.js';
 import { selectFromList, promptInput } from './tui.js';
 import { LLMError } from './errors.js';
+import { log } from './logger.js';
 import type { OllamaMode, ParsedArgs, Provider, UserConfig } from './types.js';
 
 type ProviderPickerChoice = 'ollama-local' | 'ollama-cloud' | 'anthropic' | 'openai';
@@ -57,7 +58,7 @@ export async function resolveApiKey(
   if (key) return key;
 
   if (!process.stdin.isTTY) {
-    console.error(
+    log.error(
       `${label} provider requires ${envVarName}.\nSet it with: ${envVarName}=... penmit`,
     );
     process.exit(1);
@@ -65,7 +66,7 @@ export async function resolveApiKey(
 
   const entered = await promptInput(`${label} API key: `);
   if (!entered) {
-    console.error(`API key is required for ${label} provider.`);
+    log.error(`API key is required for ${label} provider.`);
     process.exit(1);
   }
   return entered;
@@ -90,7 +91,7 @@ export async function resolveAnthropicModel(
   if (selected === ANTHROPIC_CUSTOM_MODEL) {
     const model = await promptInput('Model name: ');
     if (!model) {
-      console.error('Model name is required.');
+      log.error('Model name is required.');
       process.exit(1);
     }
     return { model, fromInteractive: true };
@@ -118,7 +119,7 @@ export async function resolveOpenAIModel(
   if (selected === OPENAI_CUSTOM_MODEL) {
     const model = await promptInput('Model name: ');
     if (!model) {
-      console.error('Model name is required.');
+      log.error('Model name is required.');
       process.exit(1);
     }
     return { model, fromInteractive: true };

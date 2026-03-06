@@ -97,6 +97,24 @@ describe('parseArgs', () => {
     expect(() => parseArgs(['--model', '--help'])).toThrow(/requires a model name/);
   });
 
+  it('parses --max-length', () => {
+    expect(parseArgs(['--max-length', '50']).maxLength).toBe(50);
+  });
+
+  it('throws when --max-length has no value', () => {
+    expect(() => parseArgs(['--max-length'])).toThrow(/--max-length requires a positive integer/);
+  });
+
+  it('throws when --max-length is not a positive integer', () => {
+    expect(() => parseArgs(['--max-length', '0'])).toThrow(/--max-length requires a positive integer/);
+    expect(() => parseArgs(['--max-length', '-5'])).toThrow(/--max-length requires a positive integer/);
+    expect(() => parseArgs(['--max-length', 'abc'])).toThrow(/--max-length requires a positive integer/);
+  });
+
+  it('throws when --max-length is followed by a flag', () => {
+    expect(() => parseArgs(['--max-length', '--help'])).toThrow(/--max-length requires a positive integer/);
+  });
+
   it('throws on unknown option', () => {
     expect(() => parseArgs(['--unknown'])).toThrow(/Unknown option/);
   });
@@ -104,111 +122,108 @@ describe('parseArgs', () => {
 
 describe('buildConfig', () => {
   it('builds local config correctly', () => {
-    const config = buildConfig({ provider: 'ollama', ollamaMode: 'local', model: 'llama3.2' }, {});
+    const config = buildConfig({}, { provider: 'ollama', ollamaMode: 'local', model: 'llama3.2' });
     expect(config.provider).toBe('ollama');
     expect(config.ollamaMode).toBe('local');
     expect(config.url).toBe(LOCAL_OLLAMA_URL);
     expect(config.model).toBe('llama3.2');
     expect(config.apiKey).toBeUndefined();
-    expect(config.debug).toBe(false);
+    expect(config.maxLength).toBe(72);
   });
 
   it('builds cloud config correctly', () => {
     const config = buildConfig(
-      { provider: 'ollama', ollamaMode: 'cloud', model: 'devstral-2', apiKey: 'sk-test' },
       {},
+      { provider: 'ollama', ollamaMode: 'cloud', model: 'devstral-2', apiKey: 'sk-test' },
     );
     expect(config.provider).toBe('ollama');
     expect(config.ollamaMode).toBe('cloud');
     expect(config.url).toBe(CLOUD_OLLAMA_URL);
     expect(config.model).toBe('devstral-2');
     expect(config.apiKey).toBe('sk-test');
+    expect(config.maxLength).toBe(72);
   });
 
   it('builds anthropic config correctly', () => {
     const config = buildConfig(
-      { provider: 'anthropic', model: 'claude-sonnet-4-6', apiKey: 'sk-ant-test' },
       {},
+      { provider: 'anthropic', model: 'claude-sonnet-4-6', apiKey: 'sk-ant-test' },
     );
     expect(config.provider).toBe('anthropic');
     expect(config.ollamaMode).toBeUndefined();
     expect(config.url).toBe('');
     expect(config.model).toBe('claude-sonnet-4-6');
     expect(config.apiKey).toBe('sk-ant-test');
+    expect(config.maxLength).toBe(72);
   });
 
   it('builds openai config correctly', () => {
     const config = buildConfig(
-      { provider: 'openai', model: 'codex-mini-latest', apiKey: 'sk-openai-test' },
       {},
+      { provider: 'openai', model: 'codex-mini-latest', apiKey: 'sk-openai-test' },
     );
     expect(config.provider).toBe('openai');
     expect(config.ollamaMode).toBeUndefined();
     expect(config.url).toBe('');
     expect(config.model).toBe('codex-mini-latest');
     expect(config.apiKey).toBe('sk-openai-test');
-    expect(config.debug).toBe(false);
+    expect(config.maxLength).toBe(72);
+  });
+
+  it('uses custom maxLength when provided', () => {
+    const config = buildConfig(
+      {},
+      { provider: 'ollama', ollamaMode: 'local', model: 'llama3.2', maxLength: 50 },
+    );
+    expect(config.maxLength).toBe(50);
   });
 
   it('does not set apiKey for local even if apiKey arg is undefined', () => {
     const config = buildConfig(
-      { provider: 'ollama', ollamaMode: 'local', model: 'llama3.2' },
       {
         OLLAMA_API_KEY: 'sk-test',
       },
+      { provider: 'ollama', ollamaMode: 'local', model: 'llama3.2' },
     );
     expect(config.apiKey).toBeUndefined();
   });
 
-  it('sets debug=true when DEBUG=1', () => {
-    expect(
-      buildConfig({ provider: 'ollama', ollamaMode: 'local', model: 'llama3.2' }, { DEBUG: '1' })
-        .debug,
-    ).toBe(true);
-  });
-
-  it('sets debug=false when DEBUG is absent', () => {
-    expect(
-      buildConfig({ provider: 'ollama', ollamaMode: 'local', model: 'llama3.2' }, {}).debug,
-    ).toBe(false);
-  });
-
   it('uses OLLAMA_HOST in local config', () => {
     const config = buildConfig(
-      { provider: 'ollama', ollamaMode: 'local', model: 'llama3.2' },
       {
         OLLAMA_HOST: 'localhost:8080',
       },
+      { provider: 'ollama', ollamaMode: 'local', model: 'llama3.2' },
     );
     expect(config.url).toBe(`http://localhost:8080${OLLAMA_CHAT_PATH}`);
   });
 
   it('uses OLLAMA_HOST with full URL', () => {
     const config = buildConfig(
-      { provider: 'ollama', ollamaMode: 'local', model: 'llama3.2' },
       {
         OLLAMA_HOST: 'http://192.168.1.5:11434',
       },
+      { provider: 'ollama', ollamaMode: 'local', model: 'llama3.2' },
     );
     expect(config.url).toBe(`http://192.168.1.5:11434${OLLAMA_CHAT_PATH}`);
   });
 
   it('uses OLLAMA_HOST with custom path as-is', () => {
     const config = buildConfig(
-      { provider: 'ollama', ollamaMode: 'local', model: 'llama3.2' },
       {
         OLLAMA_HOST: 'http://myserver.com/ollama/api/chat',
       },
+      { provider: 'ollama', ollamaMode: 'local', model: 'llama3.2' },
     );
     expect(config.url).toBe('http://myserver.com/ollama/api/chat');
   });
 
   it('ignores OLLAMA_HOST in cloud config', () => {
     const config = buildConfig(
-      { provider: 'ollama', ollamaMode: 'cloud', model: 'devstral-2', apiKey: 'sk-test' },
       {
         OLLAMA_HOST: 'localhost:8080',
       },
+      { provider: 'ollama', ollamaMode: 'cloud', model: 'devstral-2', apiKey: 'sk-test' },
     );
     expect(config.url).toBe(CLOUD_OLLAMA_URL);
   });

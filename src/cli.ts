@@ -29,6 +29,7 @@ import {
   resolveOllamaModel,
 } from './resolve.js';
 import { HELP_TEXT } from './prompts.js';
+import { log } from './logger.js';
 import type { OllamaMode, ParsedArgs, Provider, UserConfig } from './types.js';
 
 function getVersion(): string {
@@ -65,7 +66,7 @@ function enforceCommitLength(message: string, maxLength: number): string {
   const truncated = line.slice(0, maxLength);
   const lastSpace = truncated.lastIndexOf(' ');
   const result = lastSpace > 0 ? truncated.slice(0, lastSpace) : truncated;
-  console.warn(`Warning: commit message truncated to ${maxLength} characters.`);
+  log.warn(`Warning: commit message truncated to ${maxLength} characters.`);
   return result;
 }
 
@@ -89,35 +90,35 @@ export async function run(
   try {
     args = parseArgs(argv);
   } catch (err) {
-    console.error(`Error: ${err instanceof Error ? err.message : String(err)}`);
+    log.error(`Error: ${err instanceof Error ? err.message : String(err)}`);
     process.exit(1);
   }
 
   if (args.help) {
-    console.log(HELP_TEXT);
+    log.info(HELP_TEXT);
     return;
   }
 
   if (args.version) {
-    console.log(getVersion());
+    log.info(getVersion());
     return;
   }
 
   if (args.reset) {
     const configPath = getUserConfigPath();
     if (!existsSync(configPath)) {
-      console.log('No saved settings found - nothing to reset.');
+      log.info('No saved settings found - nothing to reset.');
       return;
     }
     if (!args.yes) {
       const ok = await confirm(`Reset saved settings? This will delete ${configPath}.`);
       if (!ok) {
-        console.log('Aborted.');
+        log.info('Aborted.');
         return;
       }
     }
     deleteUserConfig(configPath);
-    console.log('Settings reset. Run penmit to configure again.');
+    log.info('Settings reset. Run penmit to configure again.');
     return;
   }
 
@@ -133,7 +134,7 @@ export async function run(
     ollamaMode = result.ollamaMode;
     providerFromInteractive = result.fromInteractive;
   } catch (err) {
-    console.error(err instanceof Error ? err.message : String(err));
+    log.error(err instanceof Error ? err.message : String(err));
     process.exit(1);
   }
 
@@ -176,7 +177,7 @@ export async function run(
       model = result.model;
       modelFromInteractive = result.fromInteractive;
     } catch (err) {
-      console.error(err instanceof Error ? err.message : String(err));
+      log.error(err instanceof Error ? err.message : String(err));
       process.exit(1);
     }
   } else if (provider === 'openai') {
@@ -185,7 +186,7 @@ export async function run(
       model = result.model;
       modelFromInteractive = result.fromInteractive;
     } catch (err) {
-      console.error(err instanceof Error ? err.message : String(err));
+      log.error(err instanceof Error ? err.message : String(err));
       process.exit(1);
     }
   } else {
@@ -199,7 +200,7 @@ export async function run(
       model = result.model;
       modelFromInteractive = result.fromInteractive;
     } catch (err) {
-      console.error(err instanceof LLMError ? err.message : String(err));
+      log.error(err instanceof LLMError ? err.message : String(err));
       process.exit(1);
     }
   }
@@ -229,19 +230,19 @@ export async function run(
     maxLength,
   });
 
-  console.log(`Provider: ${getProviderLabel(provider, ollamaMode)} - Model: ${model}`);
+  log.info(`Provider: ${getProviderLabel(provider, ollamaMode)} - Model: ${model}`);
 
   // Get staged diff
   let diff: string;
   try {
     diff = getStagedDiff();
   } catch (err) {
-    console.error(err instanceof GitError ? err.message : String(err));
+    log.error(err instanceof GitError ? err.message : String(err));
     process.exit(1);
   }
 
   if (!diff.trim()) {
-    console.error('No staged changes found. Stage your changes with "git add" first.');
+    log.error('No staged changes found. Stage your changes with "git add" first.');
     process.exit(1);
   }
 
@@ -249,7 +250,7 @@ export async function run(
   try {
     message = await generate(diff, config);
   } catch (err) {
-    console.error(err instanceof LLMError ? err.message : String(err));
+    log.error(err instanceof LLMError ? err.message : String(err));
     process.exit(1);
   }
 
@@ -261,11 +262,11 @@ export async function run(
       if (status !== 0) process.exit(status);
       break;
     } else if (choice === 'regenerate') {
-      console.log('Regenerating...');
+      log.info('Regenerating...');
       try {
         message = await generate(diff, config);
       } catch (err) {
-        console.error(err instanceof LLMError ? err.message : String(err));
+        log.error(err instanceof LLMError ? err.message : String(err));
         process.exit(1);
       }
     } else {

@@ -1,6 +1,7 @@
 import type { Config } from './types.js';
 import { AnthropicError } from './errors.js';
 import { SYSTEM_PROMPT, getUserPrompt } from './prompts.js';
+import { log } from './logger.js';
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 const ANTHROPIC_VERSION = '2023-06-01';
@@ -25,9 +26,7 @@ export async function generateCommitMessage(
     messages: [{ role: 'user', content: getUserPrompt(diff, config.maxLength) }],
   };
 
-  if (config.debug) {
-    console.error('\n[DEBUG] Anthropic request body:\n', JSON.stringify(body, null, 2));
-  }
+  log.debug('\n[DEBUG] Anthropic request body:\n', JSON.stringify(body, null, 2));
 
   let response: Response;
   try {
@@ -57,9 +56,7 @@ export async function generateCommitMessage(
     content?: Array<{ type: string; text: string }>;
   };
 
-  if (config.debug) {
-    console.error('\n[DEBUG] Anthropic response:\n', JSON.stringify(data, null, 2));
-  }
+  log.debug('\n[DEBUG] Anthropic response:\n', JSON.stringify(data, null, 2));
 
   const text = data?.content?.[0]?.text;
   if (typeof text !== 'string') {

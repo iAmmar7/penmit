@@ -133,7 +133,6 @@ export function buildConfig(
     url: provider === 'ollama' ? buildOllamaChatUrl(resolvedMode!, env) : '',
     model,
     apiKey,
-    debug: env.DEBUG === '1',
     maxLength: maxLength ?? DEFAULT_MAX_COMMIT_LENGTH,
   };
 }

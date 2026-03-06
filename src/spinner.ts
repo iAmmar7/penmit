@@ -1,3 +1,5 @@
+import { colors } from './logger.js';
+
 const FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
 
 export interface Spinner {
@@ -23,7 +25,7 @@ export function createSpinner(text: string): Spinner {
   return {
     stop(finalMessage?: string) {
       clearInterval(interval);
-      process.stdout.write('\r\x1b[K');
+      process.stdout.write(`\r${colors.clearLine}`);
       if (finalMessage) process.stdout.write(`${finalMessage}\n`);
     },
   };

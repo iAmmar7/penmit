@@ -1,6 +1,7 @@
 import type { Config, OllamaMode } from './types.js';
 import { OllamaError } from './errors.js';
 import { SYSTEM_PROMPT, getUserPrompt } from './prompts.js';
+import { log } from './logger.js';
 
 export const OLLAMA_CHAT_PATH = '/api/chat';
 export const OLLAMA_TAGS_PATH = '/api/tags';
@@ -76,9 +77,7 @@ export async function generateCommitMessage(
     stream: false,
   };
 
-  if (config.debug) {
-    console.error('\n[DEBUG] Request body:\n', JSON.stringify(body, null, 2));
-  }
+  log.debug('\n[DEBUG] Request body:\n', JSON.stringify(body, null, 2));
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -107,9 +106,7 @@ export async function generateCommitMessage(
 
   const data = await response.json();
 
-  if (config.debug) {
-    console.error('\n[DEBUG] Raw response:\n', JSON.stringify(data, null, 2));
-  }
+  log.debug('\n[DEBUG] Raw response:\n', JSON.stringify(data, null, 2));
 
   const content = data?.message?.content;
   if (typeof content !== 'string') {

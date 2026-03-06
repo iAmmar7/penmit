@@ -260,7 +260,7 @@ describe('resolveAnthropicModel', () => {
     vi.mocked(tuiModule.selectFromList).mockResolvedValue(ANTHROPIC_CUSTOM_MODEL);
     vi.mocked(tuiModule.promptInput).mockResolvedValue('');
     await expect(resolveAnthropicModel(noArgs, emptyConfig)).rejects.toThrow('process.exit(1)');
-    expect(errorSpy).toHaveBeenCalledWith('Model name is required.');
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('Model name is required.'));
   });
 });
 
@@ -330,7 +330,7 @@ describe('resolveOpenAIModel', () => {
     vi.mocked(tuiModule.selectFromList).mockResolvedValue(OPENAI_CUSTOM_MODEL);
     vi.mocked(tuiModule.promptInput).mockResolvedValue('');
     await expect(resolveOpenAIModel(noArgs, emptyConfig)).rejects.toThrow('process.exit(1)');
-    expect(errorSpy).toHaveBeenCalledWith('Model name is required.');
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('Model name is required.'));
   });
 });
 
