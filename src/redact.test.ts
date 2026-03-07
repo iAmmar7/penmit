@@ -42,8 +42,20 @@ describe('redactSecrets', () => {
     expect(count).toBeGreaterThan(0);
   });
 
-  it('redacts private key headers', () => {
-    const diff = '+-----BEGIN RSA PRIVATE KEY-----';
+  it('redacts full PEM private key blocks', () => {
+    const diff = `+-----BEGIN RSA PRIVATE KEY-----
++MIIEpAIBAAKCAQEA0Z3VS5JJcds3xfn/ygWyF8PbnGy5AHB
++dummybase64contenthere
++-----END RSA PRIVATE KEY-----`;
+    const { redacted, count } = redactSecrets(diff);
+    expect(redacted).not.toContain('MIIEpAIBAAKCAQEA0Z3VS5JJcds3xfn');
+    expect(redacted).not.toContain('dummybase64contenthere');
+    expect(redacted).toContain('[REDACTED]');
+    expect(count).toBeGreaterThan(0);
+  });
+
+  it('redacts standalone private key header when END marker is missing', () => {
+    const diff = '+-----BEGIN PRIVATE KEY-----';
     const { redacted, count } = redactSecrets(diff);
     expect(redacted).toContain('[REDACTED]');
     expect(count).toBeGreaterThan(0);
@@ -96,6 +108,27 @@ describe('redactSecrets', () => {
     const { redacted, count } = redactSecrets(diff);
     expect(redacted).not.toContain('npm_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghij');
     expect(count).toBeGreaterThan(0);
+  });
+
+  it('redacts Heroku keys with contextual key name', () => {
+    const diff = '+HEROKU_API_KEY=12345678-1234-1234-1234-123456789abc';
+    const { redacted, count } = redactSecrets(diff);
+    expect(redacted).not.toContain('12345678-1234-1234-1234-123456789abc');
+    expect(count).toBeGreaterThan(0);
+  });
+
+  it('does not redact arbitrary UUIDs without Heroku context', () => {
+    const diff = '+user_id = "12345678-1234-1234-1234-123456789abc"';
+    const { redacted } = redactSecrets(diff);
+    expect(redacted).toContain('12345678-1234-1234-1234-123456789abc');
+  });
+
+  it('does not match Anthropic keys with the OpenAI pattern', () => {
+    const diff = '+KEY=sk-ant-api03-abcdefghijklmnopqrstuv';
+    const { redacted, count } = redactSecrets(diff);
+    expect(redacted).not.toContain('sk-ant-api03-abcdefghijklmnopqrstuv');
+    // Should be caught by Anthropic pattern only, not double-counted as OpenAI
+    expect(count).toBe(1);
   });
 
   it('returns count 0 for clean diffs', () => {

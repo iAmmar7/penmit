@@ -249,6 +249,11 @@ export async function run(
   }
 
   // Redact secrets before sending to cloud providers
+  if (isCloudProvider(provider, ollamaMode) && args.noRedact) {
+    log.warn(
+      `Secret redaction is disabled. Your diff will be sent to ${getProviderLabel(provider, ollamaMode)} without redaction.`,
+    );
+  }
   if (isCloudProvider(provider, ollamaMode) && !args.noRedact) {
     const projectConfig = readProjectConfig();
     const customPatterns = [
