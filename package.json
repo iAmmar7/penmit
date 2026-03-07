@@ -1,6 +1,6 @@
 {
   "name": "penmit",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "AI-powered git commit message generator using Ollama, Anthropic, or OpenAI",
   "type": "module",
   "bin": {
