@@ -257,7 +257,9 @@ export async function run(
     ];
     const { redacted, count } = redactSecrets(diff, customPatterns);
     if (count > 0) {
-      log.warn(`Redacted ${count} potential secret(s) from the diff before sending to ${getProviderLabel(provider, ollamaMode)}.`);
+      log.warn(
+        `Redacted ${count} potential secret(s) from the diff before sending to ${getProviderLabel(provider, ollamaMode)}.`,
+      );
       diff = redacted;
     }
   }

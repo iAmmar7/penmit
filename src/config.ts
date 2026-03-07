@@ -1,7 +1,14 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import { homedir } from 'os';
 import { dirname, join } from 'path';
-import type { Config, OllamaMode, ParsedArgs, ProjectConfig, Provider, UserConfig } from './types.js';
+import type {
+  Config,
+  OllamaMode,
+  ParsedArgs,
+  ProjectConfig,
+  Provider,
+  UserConfig,
+} from './types.js';
 import { buildOllamaChatUrl } from './ollama.js';
 
 export const DEFAULT_MAX_COMMIT_LENGTH = 72;
