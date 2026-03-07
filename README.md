@@ -24,6 +24,7 @@ Provider: Local (Ollama) - Model: llama3.2
 ## Features
 
 - **Local-first** - any Ollama model, fully offline, no data leaves your machine
+- **Secret redaction** - automatically scans your diff for API keys, tokens, passwords, and private keys before sending to any cloud provider
 - **Cloud support** - Ollama Cloud, Anthropic (Claude), or OpenAI; keys go directly to the provider, never to any `penmit` server
 - **No vendor lock-in** - switch providers anytime with a single flag
 - **Staged diff only** - only reads what you've staged; never touches your full repo
@@ -128,6 +129,8 @@ Options:
   --anthropic          Use Anthropic (Claude) for this run
   --openai             Use OpenAI for this run
   --setup              Re-run the setup wizard to change saved defaults
+  --max-length <n>     Max commit message length (default: 72, saved to config)
+  --no-redact          Disable secret redaction for cloud providers
   --reset              Delete saved settings and return to defaults
   -y, --yes            Skip confirmation prompt (use with --reset)
   -v, --version        Print version
@@ -151,6 +154,9 @@ penmit --anthropic
 
 # Use OpenAI with a specific model
 penmit --openai --model gpt-4o
+
+# Enforce a max commit message length (saved for future runs)
+penmit --max-length 50
 
 # Re-run setup to switch provider or model
 penmit --setup
@@ -192,6 +198,60 @@ To delete your saved settings entirely and start fresh:
 ```bash
 penmit --reset
 ```
+
+## Secret Redaction
+
+When using a cloud provider (Anthropic, OpenAI, or Ollama Cloud), `penmit` automatically scans your staged diff and redacts secrets before sending it. This runs by default - no setup required.
+
+Detected patterns include:
+
+- AWS access keys and secret keys
+- GitHub, Slack, Stripe, and npm tokens
+- Anthropic, OpenAI, and Google API keys
+- PEM private keys (full key block, not just the header)
+- Bearer tokens
+- Connection strings with embedded passwords (e.g. `postgres://user:pass@host`)
+- Generic `api_key`, `secret_key`, `access_token`, `password`, etc. assignments
+
+When secrets are found, you'll see a warning:
+
+```text
+Redacted 2 potential secret(s) from the diff before sending to Anthropic.
+```
+
+The commit message is generated from the redacted diff. Your actual diff and git history are never modified.
+
+### Custom patterns
+
+Add project-specific patterns in `.penmitrc.json` at the root of your repo:
+
+```json
+{
+  "redactPatterns": [
+    { "name": "Internal API Key", "pattern": "\\bmyapp_secret_[a-z0-9]{12,}\\b" }
+  ]
+}
+```
+
+Or in your global config (`~/.config/penmit/config.json`) to apply across all repos.
+
+Patterns are regular expressions. Use a capture group to redact only the secret value while preserving context:
+
+```json
+{
+  "redactPatterns": [
+    { "name": "Internal Header", "pattern": "X-Internal-Token:\\s*(.{16,})" }
+  ]
+}
+```
+
+### Disabling redaction
+
+```bash
+penmit --no-redact
+```
+
+Redaction is skipped entirely in local mode (Ollama) since your diff never leaves your machine.
 
 ## Interactive Prompt
 
