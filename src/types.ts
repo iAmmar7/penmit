@@ -12,11 +12,17 @@ export interface Config {
   maxLength: number;
 }
 
+export interface RedactPatternDef {
+  name: string;
+  pattern: string;
+}
+
 export interface ParsedArgs {
   provider?: Provider;
   ollamaMode?: OllamaMode;
   model?: string;
   maxLength?: number;
+  noRedact: boolean;
   help: boolean;
   version: boolean;
   setup: boolean;
@@ -30,6 +36,11 @@ export interface UserConfig {
   model?: string;
   apiKey?: string;
   maxLength?: number;
+  redactPatterns?: RedactPatternDef[];
+}
+
+export interface ProjectConfig {
+  redactPatterns?: RedactPatternDef[];
 }
 
 export interface SpawnResult {

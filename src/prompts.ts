@@ -31,6 +31,7 @@ Options:
   --cloud              Use Ollama Cloud for this run
   --anthropic          Use Anthropic (Claude) for this run
   --openai             Use OpenAI (Codex/GPT) for this run
+  --no-redact          Disable secret redaction for this run
   --setup              Re-run the setup wizard to change saved defaults
   --reset              Delete saved settings and return to defaults
   -y, --yes            Skip confirmation prompt (use with --reset)

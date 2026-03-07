@@ -27,7 +27,14 @@ vi.mock('fs', async (importOriginal) => {
 
 const LOCAL_URL = 'http://localhost:11434/api/chat';
 const TAGS_URL = 'http://localhost:11434/api/tags';
-const DEFAULT_ARGS = { help: false, version: false, setup: false, reset: false, yes: false };
+const DEFAULT_ARGS = {
+  noRedact: false,
+  help: false,
+  version: false,
+  setup: false,
+  reset: false,
+  yes: false,
+};
 
 describe('run', () => {
   let exitSpy: ReturnType<typeof vi.spyOn>;
@@ -59,6 +66,8 @@ describe('run', () => {
       ollamaMode: 'local',
       model: 'llama3.2',
     });
+
+    vi.mocked(configModule.readProjectConfig).mockReturnValue({});
 
     vi.mocked(ollamaModule.buildOllamaChatUrl).mockReturnValue(LOCAL_URL);
     vi.mocked(ollamaModule.buildOllamaTagsUrl).mockReturnValue(TAGS_URL);

@@ -7,6 +7,7 @@ import {
   deleteUserConfig,
   getUserConfigPath,
   readUserConfig,
+  readProjectConfig,
   writeUserConfig,
   DEFAULT_MAX_COMMIT_LENGTH,
 } from './config.js';
@@ -28,6 +29,7 @@ import {
   resolveOpenAIModel,
   resolveOllamaModel,
 } from './resolve.js';
+import { redactSecrets, isCloudProvider } from './redact.js';
 import { HELP_TEXT } from './prompts.js';
 import { log } from './logger.js';
 import type { OllamaMode, ParsedArgs, Provider, UserConfig } from './types.js';
@@ -244,6 +246,20 @@ export async function run(
   if (!diff.trim()) {
     log.error('No staged changes found. Stage your changes with "git add" first.');
     process.exit(1);
+  }
+
+  // Redact secrets before sending to cloud providers
+  if (isCloudProvider(provider, ollamaMode) && !args.noRedact) {
+    const projectConfig = readProjectConfig();
+    const customPatterns = [
+      ...(projectConfig.redactPatterns ?? []),
+      ...(savedConfig.redactPatterns ?? []),
+    ];
+    const { redacted, count } = redactSecrets(diff, customPatterns);
+    if (count > 0) {
+      log.warn(`Redacted ${count} potential secret(s) from the diff before sending to ${getProviderLabel(provider, ollamaMode)}.`);
+      diff = redacted;
+    }
   }
 
   let message: string;

@@ -9,12 +9,14 @@ import {
   readUserConfig,
   writeUserConfig,
   deleteUserConfig,
+  readProjectConfig,
 } from './config.js';
 import { LOCAL_OLLAMA_URL, CLOUD_OLLAMA_URL, OLLAMA_CHAT_PATH } from './ollama.js';
 
 describe('parseArgs', () => {
   it('returns defaults when no args given', () => {
     expect(parseArgs([])).toEqual({
+      noRedact: false,
       help: false,
       version: false,
       setup: false,
@@ -121,6 +123,10 @@ describe('parseArgs', () => {
     expect(() => parseArgs(['--max-length', '--help'])).toThrow(
       /--max-length requires a positive integer/,
     );
+  });
+
+  it('parses --no-redact', () => {
+    expect(parseArgs(['--no-redact']).noRedact).toBe(true);
   });
 
   it('throws on unknown option', () => {
@@ -329,6 +335,31 @@ describe('deleteUserConfig', () => {
     writeFileSync(configPath, '{}', 'utf8');
     expect(deleteUserConfig(configPath)).toBe(true);
     expect(existsSync(configPath)).toBe(false);
+    rmSync(dir, { recursive: true });
+  });
+});
+
+describe('readProjectConfig', () => {
+  it('reads .penmitrc.json from the given directory', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'penmit-test-'));
+    const config = {
+      redactPatterns: [{ name: 'Custom Token', pattern: '\\bCUSTOM_[A-Z]{20}\\b' }],
+    };
+    writeFileSync(join(dir, '.penmitrc.json'), JSON.stringify(config), 'utf8');
+    expect(readProjectConfig(dir)).toEqual(config);
+    rmSync(dir, { recursive: true });
+  });
+
+  it('returns empty object when .penmitrc.json does not exist', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'penmit-test-'));
+    expect(readProjectConfig(dir)).toEqual({});
+    rmSync(dir, { recursive: true });
+  });
+
+  it('returns empty object when .penmitrc.json contains invalid JSON', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'penmit-test-'));
+    writeFileSync(join(dir, '.penmitrc.json'), 'not json', 'utf8');
+    expect(readProjectConfig(dir)).toEqual({});
     rmSync(dir, { recursive: true });
   });
 });
