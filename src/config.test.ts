@@ -125,6 +125,34 @@ describe('parseArgs', () => {
     );
   });
 
+  it('parses --max-diff-bytes', () => {
+    expect(parseArgs(['--max-diff-bytes', '10240']).maxDiffBytes).toBe(10240);
+  });
+
+  it('throws when --max-diff-bytes has no value', () => {
+    expect(() => parseArgs(['--max-diff-bytes'])).toThrow(
+      /--max-diff-bytes requires a positive integer/,
+    );
+  });
+
+  it('throws when --max-diff-bytes is not a positive integer', () => {
+    expect(() => parseArgs(['--max-diff-bytes', '0'])).toThrow(
+      /--max-diff-bytes requires a positive integer/,
+    );
+    expect(() => parseArgs(['--max-diff-bytes', '-5'])).toThrow(
+      /--max-diff-bytes requires a positive integer/,
+    );
+    expect(() => parseArgs(['--max-diff-bytes', 'abc'])).toThrow(
+      /--max-diff-bytes requires a positive integer/,
+    );
+  });
+
+  it('throws when --max-diff-bytes is followed by a flag', () => {
+    expect(() => parseArgs(['--max-diff-bytes', '--help'])).toThrow(
+      /--max-diff-bytes requires a positive integer/,
+    );
+  });
+
   it('parses --no-redact', () => {
     expect(parseArgs(['--no-redact']).noRedact).toBe(true);
   });

@@ -10,6 +10,7 @@ import {
   readProjectConfig,
   writeUserConfig,
   DEFAULT_MAX_COMMIT_LENGTH,
+  DEFAULT_MAX_DIFF_BYTES,
 } from './config.js';
 import { GitError, LLMError } from './errors.js';
 import { getStagedDiff, runCommit } from './git.js';
@@ -208,19 +209,22 @@ export async function run(
   }
 
   const maxLength = args.maxLength ?? savedConfig.maxLength ?? DEFAULT_MAX_COMMIT_LENGTH;
+  const maxDiffBytes = args.maxDiffBytes ?? savedConfig.maxDiffBytes ?? DEFAULT_MAX_DIFF_BYTES;
 
   // Persist selection when interactive was used, a new API key was entered, or maxLength was set
   const shouldSave =
     providerFromInteractive ||
     modelFromInteractive ||
     (!savedConfig.apiKey && !!apiKey) ||
-    args.maxLength !== undefined;
+    args.maxLength !== undefined ||
+    args.maxDiffBytes !== undefined;
 
   if (shouldSave) {
     const configToSave: UserConfig = { provider, model };
     if (provider === 'ollama') configToSave.ollamaMode = ollamaMode;
     if (apiKey !== undefined) configToSave.apiKey = apiKey;
     if (args.maxLength !== undefined) configToSave.maxLength = args.maxLength;
+    if (args.maxDiffBytes !== undefined) configToSave.maxDiffBytes = args.maxDiffBytes;
     writeUserConfig(configToSave);
   }
 
@@ -246,6 +250,22 @@ export async function run(
   if (!diff.trim()) {
     log.error('No staged changes found. Stage your changes with "git add" first.');
     process.exit(1);
+  }
+
+  // Check diff size against limit
+  const diffBytes = Buffer.byteLength(diff, 'utf8');
+  if (diffBytes > maxDiffBytes) {
+    const sizeKB = (diffBytes / 1024).toFixed(1);
+    const limitKB = (maxDiffBytes / 1024).toFixed(1);
+    log.warn(`Staged diff is ${sizeKB}KB, which exceeds the ${limitKB}KB limit.`);
+    log.warn('Large diffs may be slow/expensive to process and produce lower-quality messages.');
+    if (!args.yes) {
+      const proceed = await confirm('Proceed anyway?');
+      if (!proceed) {
+        log.info('Aborted. Consider staging fewer files or using --max-diff-bytes to adjust the limit.');
+        process.exit(0);
+      }
+    }
   }
 
   // Redact secrets before sending to cloud providers

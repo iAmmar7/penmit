@@ -22,6 +22,7 @@ export interface ParsedArgs {
   ollamaMode?: OllamaMode;
   model?: string;
   maxLength?: number;
+  maxDiffBytes?: number;
   noRedact: boolean;
   help: boolean;
   version: boolean;
@@ -36,6 +37,7 @@ export interface UserConfig {
   model?: string;
   apiKey?: string;
   maxLength?: number;
+  maxDiffBytes?: number;
   redactPatterns?: RedactPatternDef[];
 }
 

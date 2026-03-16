@@ -123,18 +123,19 @@ OPENAI_API_KEY=your_key penmit
 penmit [options]
 
 Options:
-  -m, --model <name>   Model to use (overrides saved default for this run)
-  --local              Use local Ollama for this run
-  --cloud              Use Ollama Cloud for this run
-  --anthropic          Use Anthropic (Claude) for this run
-  --openai             Use OpenAI for this run
-  --setup              Re-run the setup wizard to change saved defaults
-  --max-length <n>     Max commit message length (default: 72, saved to config)
-  --no-redact          Disable secret redaction for cloud providers
-  --reset              Delete saved settings and return to defaults
-  -y, --yes            Skip confirmation prompt (use with --reset)
-  -v, --version        Print version
-  -h, --help           Show this help
+  -m, --model <name>    Model to use (overrides saved default for this run)
+  --local               Use local Ollama for this run
+  --cloud               Use Ollama Cloud for this run
+  --anthropic           Use Anthropic (Claude) for this run
+  --openai              Use OpenAI for this run
+  --setup               Re-run the setup wizard to change saved defaults
+  --max-length <n>      Max commit message length (default: 72, saved to config)
+  --max-diff-bytes <n>  Max staged diff size in bytes before warning (default: 20480)
+  --no-redact           Disable secret redaction for cloud providers
+  --reset               Delete saved settings and return to defaults
+  -y, --yes             Skip confirmation prompt (use with --reset)
+  -v, --version         Print version
+  -h, --help            Show this help
 ```
 
 ### Examples
@@ -157,6 +158,9 @@ penmit --openai --model gpt-4o
 
 # Enforce a max commit message length (saved for future runs)
 penmit --max-length 50
+
+# Raise the large-diff warning threshold to 50KB
+penmit --max-diff-bytes 51200
 
 # Re-run setup to switch provider or model
 penmit --setup
@@ -252,6 +256,24 @@ penmit --no-redact
 ```
 
 Redaction is skipped entirely in local mode (Ollama) since your diff never leaves your machine.
+
+## Large Diff Protection
+
+When your staged diff exceeds 20KB (default), `penmit` warns you before sending it to the LLM:
+
+```text
+Staged diff is 45.2KB, which exceeds the 20.0KB limit.
+Large diffs may be slow/expensive to process and produce lower-quality messages.
+Proceed anyway? [y/N]
+```
+
+You can adjust the threshold (saved for future runs):
+
+```bash
+penmit --max-diff-bytes 51200   # 50KB
+```
+
+Or skip the prompt entirely with `--yes` / `-y`.
 
 ## Interactive Prompt
 

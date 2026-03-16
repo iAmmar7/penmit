@@ -763,6 +763,94 @@ describe('run', () => {
     });
   });
 
+  describe('large diff warning', () => {
+    it('warns and prompts when diff exceeds default max-diff-bytes limit', async () => {
+      const largeDiff = 'x'.repeat(21_000); // > 20KB default
+      vi.mocked(gitModule.getStagedDiff).mockReturnValue(largeDiff);
+      vi.mocked(promptModule.confirm).mockResolvedValue(true);
+      vi.mocked(promptModule.promptUser).mockResolvedValue('accept');
+      vi.mocked(gitModule.runCommit).mockReturnValue(0);
+
+      await run();
+
+      expect(promptModule.confirm).toHaveBeenCalledWith(expect.stringContaining('Proceed anyway'));
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('exceeds'));
+    });
+
+    it('exits when user declines large diff prompt', async () => {
+      const largeDiff = 'x'.repeat(21_000);
+      vi.mocked(gitModule.getStagedDiff).mockReturnValue(largeDiff);
+      vi.mocked(promptModule.confirm).mockResolvedValue(false);
+
+      await expect(run()).rejects.toThrow('process.exit(0)');
+      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('Aborted'));
+    });
+
+    it('skips prompt with --yes flag when diff is large', async () => {
+      vi.mocked(configModule.parseArgs).mockReturnValue({ ...DEFAULT_ARGS, yes: true });
+      const largeDiff = 'x'.repeat(21_000);
+      vi.mocked(gitModule.getStagedDiff).mockReturnValue(largeDiff);
+      vi.mocked(promptModule.promptUser).mockResolvedValue('accept');
+      vi.mocked(gitModule.runCommit).mockReturnValue(0);
+
+      await run(['--yes']);
+
+      expect(promptModule.confirm).not.toHaveBeenCalled();
+      expect(gitModule.runCommit).toHaveBeenCalled();
+    });
+
+    it('does not warn when diff is under the limit', async () => {
+      vi.mocked(gitModule.getStagedDiff).mockReturnValue('small diff');
+      vi.mocked(promptModule.promptUser).mockResolvedValue('accept');
+      vi.mocked(gitModule.runCommit).mockReturnValue(0);
+
+      await run();
+
+      expect(promptModule.confirm).not.toHaveBeenCalled();
+    });
+
+    it('respects custom --max-diff-bytes from args', async () => {
+      vi.mocked(configModule.parseArgs).mockReturnValue({ ...DEFAULT_ARGS, maxDiffBytes: 100 });
+      vi.mocked(gitModule.getStagedDiff).mockReturnValue('x'.repeat(200));
+      vi.mocked(promptModule.confirm).mockResolvedValue(true);
+      vi.mocked(promptModule.promptUser).mockResolvedValue('accept');
+      vi.mocked(gitModule.runCommit).mockReturnValue(0);
+
+      await run(['--max-diff-bytes', '100']);
+
+      expect(promptModule.confirm).toHaveBeenCalledWith(expect.stringContaining('Proceed anyway'));
+    });
+
+    it('saves maxDiffBytes to config when --max-diff-bytes is provided', async () => {
+      vi.mocked(configModule.parseArgs).mockReturnValue({ ...DEFAULT_ARGS, maxDiffBytes: 10240 });
+      vi.mocked(promptModule.promptUser).mockResolvedValue('accept');
+      vi.mocked(gitModule.runCommit).mockReturnValue(0);
+
+      await run(['--max-diff-bytes', '10240']);
+
+      expect(configModule.writeUserConfig).toHaveBeenCalledWith(
+        expect.objectContaining({ maxDiffBytes: 10240 }),
+      );
+    });
+
+    it('uses saved maxDiffBytes from config when no arg provided', async () => {
+      vi.mocked(configModule.readUserConfig).mockReturnValue({
+        provider: 'ollama',
+        ollamaMode: 'local',
+        model: 'llama3.2',
+        maxDiffBytes: 500,
+      });
+      vi.mocked(gitModule.getStagedDiff).mockReturnValue('x'.repeat(600));
+      vi.mocked(promptModule.confirm).mockResolvedValue(true);
+      vi.mocked(promptModule.promptUser).mockResolvedValue('accept');
+      vi.mocked(gitModule.runCommit).mockReturnValue(0);
+
+      await run();
+
+      expect(promptModule.confirm).toHaveBeenCalledWith(expect.stringContaining('Proceed anyway'));
+    });
+  });
+
   describe('provider / model resolution errors', () => {
     it('exits with code 1 when resolveProvider throws an Error', async () => {
       vi.mocked(configModule.readUserConfig).mockReturnValue({});

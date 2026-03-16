@@ -27,6 +27,7 @@ Usage:
 Options:
   -m, --model <name>   Model to use (overrides saved default for this run)
   --max-length <n>     Max commit message length in characters (default: 72)
+  --max-diff-bytes <n> Max staged diff size in bytes before warning (default: 20480)
   --local              Use local Ollama for this run
   --cloud              Use Ollama Cloud for this run
   --anthropic          Use Anthropic (Claude) for this run

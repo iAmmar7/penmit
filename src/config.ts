@@ -12,6 +12,7 @@ import type {
 import { buildOllamaChatUrl } from './ollama.js';
 
 export const DEFAULT_MAX_COMMIT_LENGTH = 72;
+export const DEFAULT_MAX_DIFF_BYTES = 20_480; // 20KB
 
 export function getUserConfigPath(): string {
   const home = homedir();
@@ -110,6 +111,18 @@ export function parseArgs(argv: string[]): ParsedArgs {
           throw new Error(`--max-length requires a positive integer (e.g. --max-length 72)`);
         }
         result.maxLength = parsed;
+        i++;
+        break;
+      }
+      case '--max-diff-bytes': {
+        const next = argv[i + 1];
+        const parsed = parseInt(next ?? '', 10);
+        if (!next || isNaN(parsed) || parsed < 1) {
+          throw new Error(
+            `--max-diff-bytes requires a positive integer (e.g. --max-diff-bytes 20480)`,
+          );
+        }
+        result.maxDiffBytes = parsed;
         i++;
         break;
       }
