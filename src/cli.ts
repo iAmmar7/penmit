@@ -262,7 +262,9 @@ export async function run(
     if (!args.yes) {
       const proceed = await confirm('Proceed anyway?');
       if (!proceed) {
-        log.info('Aborted. Consider staging fewer files or using --max-diff-bytes to adjust the limit.');
+        log.info(
+          'Aborted. Consider staging fewer files or using --max-diff-bytes to adjust the limit.',
+        );
         process.exit(0);
       }
     }
