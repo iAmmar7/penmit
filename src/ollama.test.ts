@@ -2,10 +2,12 @@ import { describe, it, expect, vi } from 'vitest';
 import {
   generateCommitMessage,
   getLocalModels,
+  getCloudModels,
   buildOllamaChatUrl,
   buildOllamaTagsUrl,
   LOCAL_OLLAMA_URL,
   CLOUD_OLLAMA_URL,
+  CLOUD_TAGS_URL,
   OLLAMA_CHAT_PATH,
   OLLAMA_TAGS_PATH,
   DEFAULT_CLOUD_MODEL,
@@ -259,6 +261,38 @@ describe('buildOllamaTagsUrl', () => {
 describe('DEFAULT_CLOUD_MODEL', () => {
   it('is defined', () => {
     expect(DEFAULT_CLOUD_MODEL).toBe('gpt-oss:20b');
+  });
+});
+
+describe('getCloudModels', () => {
+  it('sends Bearer auth to the cloud tags URL', async () => {
+    let capturedUrl = '';
+    let capturedHeaders: Record<string, string> = {};
+    const fetchFn = async (url: string, opts?: RequestInit) => {
+      capturedUrl = url;
+      capturedHeaders = (opts?.headers ?? {}) as Record<string, string>;
+      return makeResponse({ models: [{ name: 'gpt-oss:20b' }] });
+    };
+    const models = await getCloudModels('sk-cloud-key', fetchFn as typeof fetch);
+    expect(capturedUrl).toBe(CLOUD_TAGS_URL);
+    expect(capturedHeaders['Authorization']).toBe('Bearer sk-cloud-key');
+    expect(models).toEqual(['gpt-oss:20b']);
+  });
+
+  it('throws OllamaError with cloud hint when connection fails', async () => {
+    const fetchFn = async () => {
+      throw new Error('ENOTFOUND');
+    };
+    const err = await getCloudModels('sk-cloud-key', fetchFn as typeof fetch).catch((e) => e);
+    expect(err).toBeInstanceOf(OllamaError);
+    expect(err.message).toContain('Could not reach Ollama Cloud');
+  });
+
+  it('surfaces error body detail on non-ok response', async () => {
+    const fetchFn = async () => makeResponse({ error: 'invalid api key' }, false, 401);
+    const err = await getCloudModels('sk-bad-key', fetchFn as typeof fetch).catch((e) => e);
+    expect(err).toBeInstanceOf(OllamaError);
+    expect(err.message).toContain('invalid api key');
   });
 });
 

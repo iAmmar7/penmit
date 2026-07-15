@@ -18,7 +18,7 @@ export interface RedactPatternDef {
 }
 
 export interface ParsedArgs {
-  command?: 'config';
+  command?: 'config' | 'models';
   provider?: Provider;
   ollamaMode?: OllamaMode;
   model?: string;

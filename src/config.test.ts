@@ -30,6 +30,17 @@ describe('parseArgs', () => {
     expect(parseArgs(['config']).command).toBe('config');
   });
 
+  it('parses models subcommand', () => {
+    expect(parseArgs(['models']).command).toBe('models');
+  });
+
+  it('parses models subcommand with provider flag', () => {
+    const result = parseArgs(['models', '--cloud']);
+    expect(result.command).toBe('models');
+    expect(result.provider).toBe('ollama');
+    expect(result.ollamaMode).toBe('cloud');
+  });
+
   it('parses config subcommand with flags', () => {
     const result = parseArgs(['config', '--model', 'foo']);
     expect(result.command).toBe('config');

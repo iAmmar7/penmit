@@ -7,6 +7,7 @@ export const OLLAMA_CHAT_PATH = '/api/chat';
 export const OLLAMA_TAGS_PATH = '/api/tags';
 export const LOCAL_OLLAMA_URL = `http://localhost:11434${OLLAMA_CHAT_PATH}`;
 export const CLOUD_OLLAMA_URL = `https://ollama.com${OLLAMA_CHAT_PATH}`;
+export const CLOUD_TAGS_URL = `https://ollama.com${OLLAMA_TAGS_PATH}`;
 export const DEFAULT_CLOUD_MODEL = 'gpt-oss:20b';
 
 // OLLAMA_HOST is Ollama's own env var for configuring the server address.
@@ -66,18 +67,20 @@ async function buildOllamaHttpError(
   return new OllamaError(`Ollama returned an error: ${detail}`);
 }
 
-export async function getLocalModels(
+async function fetchModelList(
   tagsUrl: string,
-  fetchFn: typeof globalThis.fetch = globalThis.fetch,
+  { apiKey, connectError }: { apiKey?: string; connectError: (msg: string) => string },
+  fetchFn: typeof globalThis.fetch,
 ): Promise<string[]> {
+  const headers: Record<string, string> = {};
+  if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+
   let response: Response;
   try {
-    response = await fetchFn(tagsUrl);
+    response = await fetchFn(tagsUrl, { headers });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    throw new OllamaError(
-      `Could not connect to Ollama: ${msg}. Make sure it is running with: ollama serve`,
-    );
+    throw new OllamaError(connectError(msg));
   }
 
   if (!response.ok) {
@@ -89,6 +92,31 @@ export async function getLocalModels(
     throw new OllamaError('Unexpected response from Ollama: missing "models" list');
   }
   return (data.models as { name: string }[]).map((m) => m.name);
+}
+
+export async function getLocalModels(
+  tagsUrl: string,
+  fetchFn: typeof globalThis.fetch = globalThis.fetch,
+): Promise<string[]> {
+  return fetchModelList(
+    tagsUrl,
+    {
+      connectError: (msg) =>
+        `Could not connect to Ollama: ${msg}. Make sure it is running with: ollama serve`,
+    },
+    fetchFn,
+  );
+}
+
+export async function getCloudModels(
+  apiKey: string,
+  fetchFn: typeof globalThis.fetch = globalThis.fetch,
+): Promise<string[]> {
+  return fetchModelList(
+    CLOUD_TAGS_URL,
+    { apiKey, connectError: (msg) => `Could not reach Ollama Cloud: ${msg}` },
+    fetchFn,
+  );
 }
 
 export async function generateCommitMessage(

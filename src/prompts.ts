@@ -26,6 +26,7 @@ Usage:
 
 Commands:
   config               Show effective settings and where each value comes from
+  models               List available models for the effective provider
 
 Options:
   -m, --model <name>   Model to use (overrides saved default for this run)
@@ -54,6 +55,8 @@ Examples:
   penmit
   penmit config
   penmit config --json
+  penmit models
+  penmit models --cloud
   penmit --model mistral
   penmit --anthropic --model claude-haiku-4-5-20251001
   penmit --openai --model codex-mini-latest

@@ -63,6 +63,9 @@ export function parseArgs(argv: string[]): ParsedArgs {
       case 'config':
         result.command = 'config';
         break;
+      case 'models':
+        result.command = 'models';
+        break;
       case '--json':
         result.json = true;
         break;

@@ -120,7 +120,11 @@ OPENAI_API_KEY=your_key penmit
 ## Usage
 
 ```text
-penmit [options]
+penmit [command] [options]
+
+Commands:
+  config                Show effective settings and where each value comes from
+  models                List available models for the effective provider
 
 Options:
   -m, --model <name>    Model to use (overrides saved default for this run)
@@ -132,6 +136,7 @@ Options:
   --max-length <n>      Max commit message length (default: 72, saved to config)
   --max-diff-bytes <n>  Max staged diff size in bytes before warning (default: 20480)
   --no-redact           Disable secret redaction for cloud providers
+  --json                Output as JSON (use with config or models)
   --reset               Delete saved settings and return to defaults
   -y, --yes             Skip confirmation prompt (use with --reset)
   -v, --version         Print version
@@ -144,11 +149,20 @@ Options:
 # Use your saved defaults
 penmit
 
+# Show your effective settings (provider, model, key, endpoint) and their sources
+penmit config
+
+# List models available for your current provider
+penmit models
+
+# List Ollama Cloud models (some are subscription-gated)
+penmit models --cloud
+
 # Override the model for this run only
 penmit --model mistral
 
 # Force Ollama Cloud with a specific model
-penmit --cloud --model devstral-2
+penmit --cloud --model gpt-oss:20b
 
 # Use Anthropic for this run
 penmit --anthropic

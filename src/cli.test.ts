@@ -998,4 +998,108 @@ describe('run', () => {
       expect(output).toContain('run penmit to configure');
     });
   });
+
+  describe('models subcommand', () => {
+    function loggedOutput(): string {
+      return logSpy.mock.calls.flat().map(String).join('\n');
+    }
+
+    it('lists local models without generating or prompting', async () => {
+      vi.mocked(configModule.parseArgs).mockReturnValue({ ...DEFAULT_ARGS, command: 'models' });
+      vi.mocked(ollamaModule.getLocalModels).mockResolvedValue(['mistral', 'llama3.2']);
+
+      await run(['models']);
+
+      const output = loggedOutput();
+      expect(output).toContain('Models for Local (Ollama):');
+      expect(output).toContain('llama3.2');
+      expect(output).toContain('mistral');
+      expect(ollamaModule.getLocalModels).toHaveBeenCalledWith(TAGS_URL);
+      expect(ollamaModule.generateCommitMessage).not.toHaveBeenCalled();
+      expect(promptModule.selectFromList).not.toHaveBeenCalled();
+      expect(configModule.writeUserConfig).not.toHaveBeenCalled();
+      expect(gitModule.getStagedDiff).not.toHaveBeenCalled();
+    });
+
+    it('lists cloud models sorted, using the env API key, with tier note', async () => {
+      vi.mocked(configModule.parseArgs).mockReturnValue({ ...DEFAULT_ARGS, command: 'models' });
+      vi.mocked(configModule.readUserConfig).mockReturnValue({});
+      vi.mocked(ollamaModule.getCloudModels).mockResolvedValue(['qwen3.5', 'gpt-oss:20b']);
+
+      await run(['models'], { OLLAMA_API_KEY: 'sk-test' });
+
+      const output = loggedOutput();
+      expect(output).toContain('Models for Ollama Cloud:');
+      expect(output).toContain('gpt-oss:20b');
+      expect(output).toContain('subscription-gated');
+      expect(ollamaModule.getCloudModels).toHaveBeenCalledWith('sk-test');
+      expect(ollamaModule.getLocalModels).not.toHaveBeenCalled();
+    });
+
+    it('exits with code 1 for cloud without an API key', async () => {
+      vi.mocked(configModule.parseArgs).mockReturnValue({
+        ...DEFAULT_ARGS,
+        command: 'models',
+        provider: 'ollama',
+        ollamaMode: 'cloud',
+      });
+      vi.mocked(configModule.readUserConfig).mockReturnValue({});
+
+      await expect(run(['models', '--cloud'], {})).rejects.toThrow('process.exit(1)');
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('OLLAMA_API_KEY'));
+      expect(ollamaModule.getCloudModels).not.toHaveBeenCalled();
+    });
+
+    it('exits with code 1 when no provider is configured', async () => {
+      vi.mocked(configModule.parseArgs).mockReturnValue({ ...DEFAULT_ARGS, command: 'models' });
+      vi.mocked(configModule.readUserConfig).mockReturnValue({});
+
+      await expect(run(['models'], {})).rejects.toThrow('process.exit(1)');
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('No provider configured'));
+    });
+
+    it('prints curated header for anthropic without network calls', async () => {
+      vi.mocked(configModule.parseArgs).mockReturnValue({ ...DEFAULT_ARGS, command: 'models' });
+      vi.mocked(configModule.readUserConfig).mockReturnValue({});
+
+      await run(['models'], { ANTHROPIC_API_KEY: 'sk-ant-test' });
+
+      const output = loggedOutput();
+      expect(output).toContain('Models for Anthropic:');
+      expect(output).toContain('Curated list');
+      expect(ollamaModule.getLocalModels).not.toHaveBeenCalled();
+      expect(ollamaModule.getCloudModels).not.toHaveBeenCalled();
+    });
+
+    it('--json emits parseable JSON with sorted models', async () => {
+      vi.mocked(configModule.parseArgs).mockReturnValue({
+        ...DEFAULT_ARGS,
+        command: 'models',
+        json: true,
+      });
+      vi.mocked(configModule.readUserConfig).mockReturnValue({});
+      vi.mocked(ollamaModule.getCloudModels).mockResolvedValue(['qwen3.5', 'gpt-oss:20b']);
+
+      await run(['models', '--json'], { OLLAMA_API_KEY: 'sk-test' });
+
+      const parsed = JSON.parse(String(logSpy.mock.calls[0][0])) as {
+        provider: string;
+        models: string[];
+        note?: string;
+      };
+      expect(parsed.provider).toBe('Ollama Cloud');
+      expect(parsed.models).toEqual(['gpt-oss:20b', 'qwen3.5']);
+      expect(parsed.note).toContain('subscription-gated');
+    });
+
+    it('exits with code 1 when the model listing fails', async () => {
+      vi.mocked(configModule.parseArgs).mockReturnValue({ ...DEFAULT_ARGS, command: 'models' });
+      vi.mocked(ollamaModule.getLocalModels).mockRejectedValue(
+        new OllamaError('Could not connect to Ollama'),
+      );
+
+      await expect(run(['models'])).rejects.toThrow('process.exit(1)');
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('Could not connect to Ollama'));
+    });
+  });
 });

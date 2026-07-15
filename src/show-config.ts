@@ -38,36 +38,66 @@ const API_KEY_ENV_VARS: Record<string, string> = {
   'ollama-cloud': 'OLLAMA_API_KEY',
 };
 
+export interface EffectiveProvider {
+  provider?: Provider;
+  ollamaMode?: OllamaMode;
+  setting: EffectiveSetting;
+}
+
+export function resolveEffectiveProvider(
+  args: ParsedArgs,
+  savedConfig: UserConfig,
+  env: Record<string, string | undefined>,
+): EffectiveProvider {
+  if (args.provider) {
+    return {
+      provider: args.provider,
+      ollamaMode: args.ollamaMode,
+      setting: { value: getProviderLabel(args.provider, args.ollamaMode), source: 'flag' },
+    };
+  }
+  if (env.ANTHROPIC_API_KEY) {
+    return {
+      provider: 'anthropic',
+      setting: { value: 'Anthropic', source: 'env', detail: 'ANTHROPIC_API_KEY' },
+    };
+  }
+  if (env.OPENAI_API_KEY) {
+    return {
+      provider: 'openai',
+      setting: { value: 'OpenAI', source: 'env', detail: 'OPENAI_API_KEY' },
+    };
+  }
+  if (env.OLLAMA_API_KEY) {
+    return {
+      provider: 'ollama',
+      ollamaMode: 'cloud',
+      setting: { value: 'Ollama Cloud', source: 'env', detail: 'OLLAMA_API_KEY' },
+    };
+  }
+  if (savedConfig.provider) {
+    return {
+      provider: savedConfig.provider,
+      ollamaMode: savedConfig.ollamaMode,
+      setting: {
+        value: getProviderLabel(savedConfig.provider, savedConfig.ollamaMode),
+        source: 'saved',
+      },
+    };
+  }
+  return { setting: { source: 'unset' } };
+}
+
 export function computeEffectiveSettings(
   args: ParsedArgs,
   savedConfig: UserConfig,
   env: Record<string, string | undefined>,
 ): EffectiveSettings {
-  let provider: Provider | undefined;
-  let ollamaMode: OllamaMode | undefined;
-  let providerSetting: EffectiveSetting;
-
-  if (args.provider) {
-    provider = args.provider;
-    ollamaMode = args.ollamaMode;
-    providerSetting = { value: getProviderLabel(provider, ollamaMode), source: 'flag' };
-  } else if (env.ANTHROPIC_API_KEY) {
-    provider = 'anthropic';
-    providerSetting = { value: 'Anthropic', source: 'env', detail: 'ANTHROPIC_API_KEY' };
-  } else if (env.OPENAI_API_KEY) {
-    provider = 'openai';
-    providerSetting = { value: 'OpenAI', source: 'env', detail: 'OPENAI_API_KEY' };
-  } else if (env.OLLAMA_API_KEY) {
-    provider = 'ollama';
-    ollamaMode = 'cloud';
-    providerSetting = { value: 'Ollama Cloud', source: 'env', detail: 'OLLAMA_API_KEY' };
-  } else if (savedConfig.provider) {
-    provider = savedConfig.provider;
-    ollamaMode = savedConfig.ollamaMode;
-    providerSetting = { value: getProviderLabel(provider, ollamaMode), source: 'saved' };
-  } else {
-    providerSetting = { source: 'unset' };
-  }
+  const {
+    provider,
+    ollamaMode,
+    setting: providerSetting,
+  } = resolveEffectiveProvider(args, savedConfig, env);
 
   return {
     provider: providerSetting,
