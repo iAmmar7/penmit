@@ -292,7 +292,7 @@ describe('getCloudModels', () => {
     const fetchFn = async () => makeResponse({ error: 'invalid api key' }, false, 401);
     const err = await getCloudModels('sk-bad-key', fetchFn as typeof fetch).catch((e) => e);
     expect(err).toBeInstanceOf(OllamaError);
-    expect(err.message).toContain('invalid api key');
+    expect(err.message).toContain('Ollama Cloud returned an error: invalid api key');
   });
 });
 

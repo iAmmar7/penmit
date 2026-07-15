@@ -1084,10 +1084,14 @@ describe('run', () => {
 
       const parsed = JSON.parse(String(logSpy.mock.calls[0][0])) as {
         provider: string;
+        mode?: string;
+        label: string;
         models: string[];
         note?: string;
       };
-      expect(parsed.provider).toBe('Ollama Cloud');
+      expect(parsed.provider).toBe('ollama');
+      expect(parsed.mode).toBe('cloud');
+      expect(parsed.label).toBe('Ollama Cloud');
       expect(parsed.models).toEqual(['gpt-oss:20b', 'qwen3.5']);
       expect(parsed.note).toContain('subscription-gated');
     });

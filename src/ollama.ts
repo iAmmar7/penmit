@@ -64,12 +64,17 @@ async function buildOllamaHttpError(
     );
   }
 
-  return new OllamaError(`Ollama returned an error: ${detail}`);
+  const who = opts.mode === 'cloud' ? 'Ollama Cloud' : 'Ollama';
+  return new OllamaError(`${who} returned an error: ${detail}`);
 }
 
 async function fetchModelList(
   tagsUrl: string,
-  { apiKey, connectError }: { apiKey?: string; connectError: (msg: string) => string },
+  {
+    apiKey,
+    mode,
+    connectError,
+  }: { apiKey?: string; mode?: OllamaMode; connectError: (msg: string) => string },
   fetchFn: typeof globalThis.fetch,
 ): Promise<string[]> {
   const headers: Record<string, string> = {};
@@ -84,7 +89,7 @@ async function fetchModelList(
   }
 
   if (!response.ok) {
-    throw await buildOllamaHttpError(response, {});
+    throw await buildOllamaHttpError(response, { mode });
   }
 
   const data = await response.json();
@@ -101,6 +106,7 @@ export async function getLocalModels(
   return fetchModelList(
     tagsUrl,
     {
+      mode: 'local',
       connectError: (msg) =>
         `Could not connect to Ollama: ${msg}. Make sure it is running with: ollama serve`,
     },
@@ -114,7 +120,7 @@ export async function getCloudModels(
 ): Promise<string[]> {
   return fetchModelList(
     CLOUD_TAGS_URL,
-    { apiKey, connectError: (msg) => `Could not reach Ollama Cloud: ${msg}` },
+    { apiKey, mode: 'cloud', connectError: (msg) => `Could not reach Ollama Cloud: ${msg}` },
     fetchFn,
   );
 }

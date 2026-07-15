@@ -148,7 +148,13 @@ async function runModelsCommand(
   }
 
   if (args.json) {
-    log.info(JSON.stringify({ provider: label, models: models.map((m) => m.name), note }, null, 2));
+    log.info(
+      JSON.stringify(
+        { provider, mode: ollamaMode, label, models: models.map((m) => m.name), note },
+        null,
+        2,
+      ),
+    );
     return;
   }
 
