@@ -38,6 +38,38 @@ const API_KEY_ENV_VARS: Record<string, string> = {
   'ollama-cloud': 'OLLAMA_API_KEY',
 };
 
+export interface ApiKeyLookup {
+  key?: string;
+  source: 'env' | 'saved' | 'unset';
+  /** The env var this provider reads its key from; undefined when no key is required. */
+  envVar?: string;
+}
+
+export function lookupApiKey(
+  savedConfig: UserConfig,
+  env: Record<string, string | undefined>,
+  { provider, ollamaMode }: { provider: Provider; ollamaMode?: OllamaMode },
+): ApiKeyLookup {
+  const providerKey = ollamaMode === 'cloud' ? 'ollama-cloud' : provider;
+  const envVar = API_KEY_ENV_VARS[providerKey];
+  if (!envVar) return { source: 'unset' };
+
+  const envKey = env[envVar]?.trim();
+  if (envKey) return { key: envKey, source: 'env', envVar };
+
+  const savedKey =
+    providerKey === 'ollama-cloud'
+      ? savedConfig.ollamaMode === 'cloud'
+        ? savedConfig.apiKey
+        : undefined
+      : savedConfig.provider === provider
+        ? savedConfig.apiKey
+        : undefined;
+  if (savedKey?.trim()) return { key: savedKey.trim(), source: 'saved', envVar };
+
+  return { source: 'unset', envVar };
+}
+
 export interface EffectiveProvider {
   provider?: Provider;
   ollamaMode?: OllamaMode;
@@ -99,21 +131,27 @@ export function computeEffectiveSettings(
     setting: providerSetting,
   } = resolveEffectiveProvider(args, savedConfig, env);
 
+  const target = { provider, ollamaMode };
+
   return {
     provider: providerSetting,
-    model: computeModel(args, savedConfig, provider, ollamaMode),
-    apiKey: computeApiKey(savedConfig, env, provider, ollamaMode),
-    endpoint: computeEndpoint(env, provider, ollamaMode),
+    model: computeModel(args, savedConfig, target),
+    apiKey: computeApiKey(savedConfig, env, target),
+    endpoint: computeEndpoint(env, target),
     maxLength: computeLimit(args.maxLength, savedConfig.maxLength, DEFAULT_MAX_COMMIT_LENGTH),
     maxDiffBytes: computeLimit(args.maxDiffBytes, savedConfig.maxDiffBytes, DEFAULT_MAX_DIFF_BYTES),
   };
 }
 
+interface ProviderTarget {
+  provider?: Provider;
+  ollamaMode?: OllamaMode;
+}
+
 function computeModel(
   args: ParsedArgs,
   savedConfig: UserConfig,
-  provider: Provider | undefined,
-  ollamaMode: OllamaMode | undefined,
+  { provider, ollamaMode }: ProviderTarget,
 ): EffectiveSetting {
   if (args.model) return { value: args.model, source: 'flag' };
 
@@ -133,33 +171,23 @@ function computeModel(
 function computeApiKey(
   savedConfig: UserConfig,
   env: Record<string, string | undefined>,
-  provider: Provider | undefined,
-  ollamaMode: OllamaMode | undefined,
+  { provider, ollamaMode }: ProviderTarget,
 ): EffectiveSetting {
   if (!provider) return { source: 'unset' };
 
-  const providerKey = ollamaMode === 'cloud' ? 'ollama-cloud' : provider;
-  const envVar = API_KEY_ENV_VARS[providerKey];
-  if (!envVar) return { source: 'unset', detail: 'not required' };
-
-  const envKey = env[envVar]?.trim();
-  if (envKey) return { value: maskApiKey(envKey), source: 'env', detail: envVar };
-
-  // Saved key only applies when saved for the same provider (mirrors cli.ts guards).
-  const savedMatches =
-    savedConfig.apiKey &&
-    (providerKey === 'ollama-cloud'
-      ? savedConfig.ollamaMode === 'cloud'
-      : savedConfig.provider === provider);
-  if (savedMatches) return { value: maskApiKey(savedConfig.apiKey!), source: 'saved' };
-
-  return { source: 'unset' };
+  const lookup = lookupApiKey(savedConfig, env, { provider, ollamaMode });
+  if (!lookup.envVar) return { source: 'unset', detail: 'not required' };
+  if (!lookup.key) return { source: 'unset' };
+  return {
+    value: maskApiKey(lookup.key),
+    source: lookup.source,
+    detail: lookup.source === 'env' ? lookup.envVar : undefined,
+  };
 }
 
 function computeEndpoint(
   env: Record<string, string | undefined>,
-  provider: Provider | undefined,
-  ollamaMode: OllamaMode | undefined,
+  { provider, ollamaMode }: ProviderTarget,
 ): EffectiveSetting {
   if (provider === 'anthropic') return { value: ANTHROPIC_API_URL, source: 'default' };
   if (provider === 'openai') return { value: OPENAI_API_URL, source: 'default' };

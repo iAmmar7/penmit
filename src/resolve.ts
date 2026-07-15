@@ -2,6 +2,7 @@ import { ANTHROPIC_MODELS, ANTHROPIC_CUSTOM_MODEL } from './anthropic.js';
 import { DEFAULT_CLOUD_MODEL, getLocalModels } from './ollama.js';
 import { OPENAI_MODELS, OPENAI_CUSTOM_MODEL } from './openai.js';
 import { selectFromList, promptInput } from './tui.js';
+import { resolveEffectiveProvider } from './show-config.js';
 import { LLMError } from './errors.js';
 import { log } from './logger.js';
 import type { OllamaMode, ParsedArgs, Provider, UserConfig } from './types.js';
@@ -13,23 +14,14 @@ export async function resolveProvider(
   savedConfig: UserConfig,
   env: Record<string, string | undefined>,
 ): Promise<{ provider: Provider; ollamaMode?: OllamaMode; fromInteractive: boolean }> {
-  // Priority: CLI flag > env var > saved config > interactive picker
-  if (args.provider) {
-    return { provider: args.provider, ollamaMode: args.ollamaMode, fromInteractive: false };
-  }
-  if (env.ANTHROPIC_API_KEY) {
-    return { provider: 'anthropic', fromInteractive: false };
-  }
-  if (env.OPENAI_API_KEY) {
-    return { provider: 'openai', fromInteractive: false };
-  }
-  if (env.OLLAMA_API_KEY) {
-    return { provider: 'ollama', ollamaMode: 'cloud', fromInteractive: false };
-  }
-  if (savedConfig.provider && !args.setup) {
+  // Priority: CLI flag > env var > saved config > interactive picker.
+  // The non-interactive prefix is shared with `penmit config` (resolveEffectiveProvider);
+  // --setup only bypasses the saved config, not flags or env vars.
+  const effective = resolveEffectiveProvider(args, savedConfig, env);
+  if (effective.provider && !(args.setup && effective.setting.source === 'saved')) {
     return {
-      provider: savedConfig.provider,
-      ollamaMode: savedConfig.ollamaMode,
+      provider: effective.provider,
+      ollamaMode: effective.ollamaMode,
       fromInteractive: false,
     };
   }

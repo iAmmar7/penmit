@@ -40,6 +40,7 @@ import {
   computeEffectiveSettings,
   resolveEffectiveProvider,
   getProviderLabel,
+  lookupApiKey,
   type EffectiveSetting,
 } from './show-config.js';
 import { HELP_TEXT } from './prompts.js';
@@ -126,9 +127,7 @@ async function runModelsCommand(
       models = OPENAI_MODELS;
       note = 'Curated list - any OpenAI model name works with --model.';
     } else if (ollamaMode === 'cloud') {
-      const apiKey =
-        env.OLLAMA_API_KEY?.trim() ||
-        (savedConfig.ollamaMode === 'cloud' ? savedConfig.apiKey : undefined);
+      const { key: apiKey } = lookupApiKey(savedConfig, env, { provider, ollamaMode });
       if (!apiKey) {
         log.error(
           'Ollama Cloud requires an API key. Set it with: OLLAMA_API_KEY=... penmit models',
@@ -266,31 +265,11 @@ export async function run(
 
   // Resolve API key (only for providers that require one)
   let apiKey: string | undefined;
-  const providerKey = ollamaMode === 'cloud' ? 'ollama-cloud' : provider;
-  const apiKeyConfigs: Partial<
-    Record<string, { envVar: string; label: string; savedKey: string | undefined }>
-  > = {
-    anthropic: {
-      envVar: 'ANTHROPIC_API_KEY',
-      label: 'Anthropic',
-      savedKey: savedConfig.provider === 'anthropic' ? savedConfig.apiKey : undefined,
-    },
-    openai: {
-      envVar: 'OPENAI_API_KEY',
-      label: 'OpenAI',
-      savedKey: savedConfig.provider === 'openai' ? savedConfig.apiKey : undefined,
-    },
-    'ollama-cloud': {
-      envVar: 'OLLAMA_API_KEY',
-      label: 'Ollama Cloud',
-      savedKey: savedConfig.ollamaMode === 'cloud' ? savedConfig.apiKey : undefined,
-    },
-  };
-  const keyConf = apiKeyConfigs[providerKey];
-  if (keyConf) {
-    apiKey = await resolveApiKey(env[keyConf.envVar], keyConf.savedKey, {
-      label: keyConf.label,
-      envVarName: keyConf.envVar,
+  const keyLookup = lookupApiKey(savedConfig, env, { provider, ollamaMode });
+  if (keyLookup.envVar) {
+    apiKey = await resolveApiKey(keyLookup.key, undefined, {
+      label: getProviderLabel(provider, ollamaMode),
+      envVarName: keyLookup.envVar,
     });
   }
 
