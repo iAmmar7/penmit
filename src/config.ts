@@ -53,12 +53,19 @@ export function parseArgs(argv: string[]): ParsedArgs {
     setup: false,
     reset: false,
     yes: false,
+    json: false,
   };
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
 
     switch (arg) {
+      case 'config':
+        result.command = 'config';
+        break;
+      case '--json':
+        result.json = true;
+        break;
       case '--help':
       case '-h':
         result.help = true;
@@ -127,6 +134,9 @@ export function parseArgs(argv: string[]): ParsedArgs {
         break;
       }
       default:
+        if (!arg.startsWith('-')) {
+          throw new Error(`Unknown command: ${arg}`);
+        }
         throw new Error(`Unknown option: ${arg}`);
     }
   }

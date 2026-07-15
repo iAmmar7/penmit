@@ -26,6 +26,7 @@ const noArgs: ParsedArgs = {
   reset: false,
   yes: false,
   noRedact: false,
+  json: false,
 };
 const emptyConfig: UserConfig = {};
 

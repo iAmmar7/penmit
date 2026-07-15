@@ -3,7 +3,7 @@ import { AnthropicError } from './errors.js';
 import { SYSTEM_PROMPT, getUserPrompt } from './prompts.js';
 import { log } from './logger.js';
 
-const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
+export const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 const ANTHROPIC_VERSION = '2023-06-01';
 
 export const ANTHROPIC_MODELS: { name: string; hint: string }[] = [

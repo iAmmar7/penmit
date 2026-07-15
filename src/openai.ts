@@ -3,7 +3,7 @@ import { OpenAIError } from './errors.js';
 import { SYSTEM_PROMPT, getUserPrompt } from './prompts.js';
 import { log } from './logger.js';
 
-const OPENAI_API_URL = 'https://api.openai.com/v1/responses';
+export const OPENAI_API_URL = 'https://api.openai.com/v1/responses';
 
 export const OPENAI_MODELS: { name: string; hint: string }[] = [
   { name: 'codex-mini-latest', hint: 'fast Codex model - recommended' },

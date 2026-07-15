@@ -18,6 +18,7 @@ export interface RedactPatternDef {
 }
 
 export interface ParsedArgs {
+  command?: 'config';
   provider?: Provider;
   ollamaMode?: OllamaMode;
   model?: string;
@@ -29,6 +30,7 @@ export interface ParsedArgs {
   setup: boolean;
   reset: boolean;
   yes: boolean;
+  json: boolean;
 }
 
 export interface UserConfig {

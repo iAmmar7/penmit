@@ -31,8 +31,9 @@ import {
   resolveOllamaModel,
 } from './resolve.js';
 import { redactSecrets, isCloudProvider } from './redact.js';
+import { computeEffectiveSettings, getProviderLabel, type EffectiveSetting } from './show-config.js';
 import { HELP_TEXT } from './prompts.js';
-import { log } from './logger.js';
+import { log, colors, colorize } from './logger.js';
 import type { OllamaMode, ParsedArgs, Provider, UserConfig } from './types.js';
 
 function getVersion(): string {
@@ -46,10 +47,41 @@ function getVersion(): string {
   }
 }
 
-function getProviderLabel(provider: Provider, ollamaMode?: OllamaMode): string {
-  if (provider === 'anthropic') return 'Anthropic';
-  if (provider === 'openai') return 'OpenAI';
-  return ollamaMode === 'cloud' ? 'Ollama Cloud' : 'Local (Ollama)';
+function runConfigCommand(args: ParsedArgs, env: Record<string, string | undefined>): void {
+  const configPath = getUserConfigPath();
+  const savedConfig = readUserConfig();
+  const settings = computeEffectiveSettings(args, savedConfig, env);
+  const configFileFound = existsSync(configPath);
+
+  if (args.json) {
+    log.info(JSON.stringify({ configFile: { path: configPath, found: configFileFound }, ...settings }, null, 2));
+    return;
+  }
+
+  const formatSource = (s: EffectiveSetting): string => {
+    const label = s.detail ? `${s.source}: ${s.detail}` : s.source;
+    return colorize(colors.dim, `(${label})`);
+  };
+  const formatValue = (s: EffectiveSetting): string => {
+    if (s.value) return s.value;
+    return s.detail === 'not required' ? '(not required)' : '(not set)';
+  };
+  const row = (label: string, s: EffectiveSetting): string =>
+    `${label.padEnd(16)}${formatValue(s).padEnd(28)} ${formatSource(s)}`;
+
+  log.info(
+    `${'Config file:'.padEnd(16)}${configPath} ${colorize(colors.dim, configFileFound ? '(found)' : '(not found)')}`,
+  );
+  log.info(row('Provider:', settings.provider));
+  log.info(row('Model:', settings.model));
+  log.info(row('API key:', settings.apiKey));
+  log.info(row('Endpoint:', settings.endpoint));
+  log.info(row('Max length:', settings.maxLength));
+  log.info(row('Max diff bytes:', settings.maxDiffBytes));
+
+  if (settings.provider.source === 'unset') {
+    log.info(colorize(colors.dim, '\nNo provider configured yet - run penmit to configure.'));
+  }
 }
 
 const generators: Record<
@@ -104,6 +136,11 @@ export async function run(
 
   if (args.version) {
     log.info(getVersion());
+    return;
+  }
+
+  if (args.command === 'config') {
+    runConfigCommand(args, env);
     return;
   }
 

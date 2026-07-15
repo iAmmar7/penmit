@@ -136,6 +136,60 @@ describe('generateCommitMessage', () => {
     expect(err.message).toContain('503');
   });
 
+  it('throws retired-model message on 410 from cloud', async () => {
+    const cloudConfig: Config = {
+      ...baseConfig,
+      ollamaMode: 'cloud',
+      url: 'https://ollama.com/api/chat',
+      model: 'devstral-small-2:24b',
+    };
+    const fetchFn = async () => makeResponse({ error: 'model has been removed' }, false, 410);
+    const err = await generateCommitMessage('diff', cloudConfig, fetchFn as typeof fetch).catch(
+      (e) => e,
+    );
+    expect(err).toBeInstanceOf(OllamaError);
+    expect(err.message).toContain('not available on Ollama Cloud');
+    expect(err.message).toContain('devstral-small-2:24b');
+    expect(err.message).toContain('https://ollama.com/search?c=cloud');
+    expect(err.message).toContain('--model');
+  });
+
+  it('throws ollama pull hint on 404 from local', async () => {
+    const fetchFn = async () => makeResponse({ error: 'model "llama3.2" not found' }, false, 404);
+    const err = await generateCommitMessage('diff', baseConfig, fetchFn as typeof fetch).catch(
+      (e) => e,
+    );
+    expect(err).toBeInstanceOf(OllamaError);
+    expect(err.message).toContain('not installed locally');
+    expect(err.message).toContain('ollama pull llama3.2');
+  });
+
+  it('surfaces error body detail on other HTTP errors', async () => {
+    const fetchFn = async () => makeResponse({ error: 'boom' }, false, 500);
+    const err = await generateCommitMessage('diff', baseConfig, fetchFn as typeof fetch).catch(
+      (e) => e,
+    );
+    expect(err).toBeInstanceOf(OllamaError);
+    expect(err.message).toContain('Ollama returned an error: boom');
+  });
+
+  it('falls back to status text when error body is not JSON', async () => {
+    const fetchFn = async () =>
+      ({
+        ok: false,
+        status: 502,
+        statusText: 'Bad Gateway',
+        json: async () => {
+          throw new Error('not json');
+        },
+      }) as unknown as Response;
+    const err = await generateCommitMessage('diff', baseConfig, fetchFn as typeof fetch).catch(
+      (e) => e,
+    );
+    expect(err).toBeInstanceOf(OllamaError);
+    expect(err.message).toContain('502 Bad Gateway');
+  });
+
   it('throws OllamaError when response body has no message.content string', async () => {
     const fetchFn = async () => makeResponse({ message: { content: 42 } });
     const err = await generateCommitMessage('diff', baseConfig, fetchFn as typeof fetch).catch(
@@ -204,7 +258,7 @@ describe('buildOllamaTagsUrl', () => {
 
 describe('DEFAULT_CLOUD_MODEL', () => {
   it('is defined', () => {
-    expect(DEFAULT_CLOUD_MODEL).toBe('devstral-small-2:24b');
+    expect(DEFAULT_CLOUD_MODEL).toBe('gpt-oss:20b');
   });
 });
 

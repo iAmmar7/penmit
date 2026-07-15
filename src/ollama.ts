@@ -7,7 +7,7 @@ export const OLLAMA_CHAT_PATH = '/api/chat';
 export const OLLAMA_TAGS_PATH = '/api/tags';
 export const LOCAL_OLLAMA_URL = `http://localhost:11434${OLLAMA_CHAT_PATH}`;
 export const CLOUD_OLLAMA_URL = `https://ollama.com${OLLAMA_CHAT_PATH}`;
-export const DEFAULT_CLOUD_MODEL = 'devstral-small-2:24b';
+export const DEFAULT_CLOUD_MODEL = 'gpt-oss:20b';
 
 // OLLAMA_HOST is Ollama's own env var for configuring the server address.
 // The Ollama client (ollama run, ollama pull, etc.) also reads it to know where to connect.
@@ -38,6 +38,34 @@ export function buildOllamaTagsUrl(chatUrl: string): string {
   return chatUrl.replace(OLLAMA_CHAT_PATH, OLLAMA_TAGS_PATH);
 }
 
+// Ollama error bodies are {"error": "<string>"} (a string, unlike Anthropic/OpenAI's object).
+async function buildOllamaHttpError(
+  response: Response,
+  opts: { model?: string; mode?: OllamaMode },
+): Promise<OllamaError> {
+  const errBody = (await response.json().catch(() => ({}))) as { error?: unknown };
+  const detail =
+    typeof errBody.error === 'string' && errBody.error
+      ? errBody.error
+      : `${response.status} ${response.statusText}`;
+
+  if ((response.status === 404 || response.status === 410) && opts.model) {
+    if (opts.mode === 'cloud') {
+      return new OllamaError(
+        `Model "${opts.model}" is not available on Ollama Cloud (${detail}).\n` +
+          'Pick another model: https://ollama.com/search?c=cloud\n' +
+          'Then run: penmit --cloud --model <name> --setup to save it as your default.',
+      );
+    }
+    return new OllamaError(
+      `Model "${opts.model}" is not installed locally (${detail}).\n` +
+        `Pull it with: ollama pull ${opts.model}`,
+    );
+  }
+
+  return new OllamaError(`Ollama returned an error: ${detail}`);
+}
+
 export async function getLocalModels(
   tagsUrl: string,
   fetchFn: typeof globalThis.fetch = globalThis.fetch,
@@ -53,7 +81,7 @@ export async function getLocalModels(
   }
 
   if (!response.ok) {
-    throw new OllamaError(`Ollama returned an error: ${response.status} ${response.statusText}`);
+    throw await buildOllamaHttpError(response, {});
   }
 
   const data = await response.json();
@@ -101,7 +129,7 @@ export async function generateCommitMessage(
   }
 
   if (!response.ok) {
-    throw new OllamaError(`Ollama returned an error: ${response.status} ${response.statusText}`);
+    throw await buildOllamaHttpError(response, { model: config.model, mode: config.ollamaMode });
   }
 
   const data = await response.json();

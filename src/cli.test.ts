@@ -34,6 +34,7 @@ const DEFAULT_ARGS = {
   setup: false,
   reset: false,
   yes: false,
+  json: false,
 };
 
 describe('run', () => {
@@ -367,7 +368,7 @@ describe('run', () => {
         provider: 'ollama',
         ollamaMode: 'cloud',
         url: 'https://ollama.com/api/chat',
-        model: 'devstral-small-2:24b',
+        model: 'gpt-oss:20b',
         apiKey: 'sk-test',
 
         maxLength: 72,
@@ -381,7 +382,7 @@ describe('run', () => {
         expect.objectContaining({
           provider: 'ollama',
           ollamaMode: 'cloud',
-          model: 'devstral-small-2:24b',
+          model: 'gpt-oss:20b',
           apiKey: 'sk-test',
         }),
       );
@@ -906,6 +907,95 @@ describe('run', () => {
         'process.exit(1)',
       );
       expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('raw openai error'));
+    });
+  });
+
+  describe('config subcommand', () => {
+    function loggedOutput(): string {
+      return logSpy.mock.calls.flat().map(String).join('\n');
+    }
+
+    it('prints effective settings without prompting, fetching, or writing', async () => {
+      vi.mocked(configModule.parseArgs).mockReturnValue({ ...DEFAULT_ARGS, command: 'config' });
+
+      await run(['config']);
+
+      const output = loggedOutput();
+      expect(output).toContain('Config file:');
+      expect(output).toContain('/fake/.config/penmit/config.json');
+      expect(output).toContain('Local (Ollama)');
+      expect(output).toContain('llama3.2');
+      expect(output).toContain('(saved)');
+
+      expect(promptModule.selectFromList).not.toHaveBeenCalled();
+      expect(promptModule.promptInput).not.toHaveBeenCalled();
+      expect(promptModule.promptUser).not.toHaveBeenCalled();
+      expect(ollamaModule.getLocalModels).not.toHaveBeenCalled();
+      expect(ollamaModule.generateCommitMessage).not.toHaveBeenCalled();
+      expect(configModule.writeUserConfig).not.toHaveBeenCalled();
+      expect(gitModule.getStagedDiff).not.toHaveBeenCalled();
+    });
+
+    it('masks the saved API key and never prints it in full', async () => {
+      vi.mocked(configModule.parseArgs).mockReturnValue({ ...DEFAULT_ARGS, command: 'config' });
+      vi.mocked(configModule.readUserConfig).mockReturnValue({
+        provider: 'ollama',
+        ollamaMode: 'cloud',
+        model: 'gpt-oss:20b',
+        apiKey: 'sk-test-1234abcd',
+      });
+
+      await run(['config']);
+
+      const output = loggedOutput();
+      expect(output).toContain('Ollama Cloud');
+      expect(output).toContain('abcd');
+      expect(output).not.toContain('sk-test-1234abcd');
+    });
+
+    it('reports env-derived provider with the env var name', async () => {
+      vi.mocked(configModule.parseArgs).mockReturnValue({ ...DEFAULT_ARGS, command: 'config' });
+      vi.mocked(configModule.readUserConfig).mockReturnValue({});
+
+      await run(['config'], { OLLAMA_API_KEY: 'sk-env-9876wxyz' });
+
+      const output = loggedOutput();
+      expect(output).toContain('Ollama Cloud');
+      expect(output).toContain('OLLAMA_API_KEY');
+      expect(output).toContain('gpt-oss:20b');
+      expect(output).toContain('(default)');
+      expect(output).not.toContain('sk-env-9876wxyz');
+    });
+
+    it('--json emits parseable JSON with sources', async () => {
+      vi.mocked(configModule.parseArgs).mockReturnValue({
+        ...DEFAULT_ARGS,
+        command: 'config',
+        json: true,
+      });
+
+      await run(['config', '--json']);
+
+      const parsed = JSON.parse(String(logSpy.mock.calls[0][0])) as {
+        configFile: { path: string; found: boolean };
+        provider: { value?: string; source: string };
+        model: { value?: string; source: string };
+      };
+      expect(parsed.configFile.path).toBe('/fake/.config/penmit/config.json');
+      expect(parsed.provider).toEqual({ value: 'Local (Ollama)', source: 'saved' });
+      expect(parsed.model).toEqual({ value: 'llama3.2', source: 'saved' });
+    });
+
+    it('handles a fresh machine with nothing configured', async () => {
+      vi.mocked(configModule.parseArgs).mockReturnValue({ ...DEFAULT_ARGS, command: 'config' });
+      vi.mocked(configModule.readUserConfig).mockReturnValue({});
+
+      await run(['config'], {});
+
+      const output = loggedOutput();
+      expect(output).toContain('(not set)');
+      expect(output).toContain('(not found)');
+      expect(output).toContain('run penmit to configure');
     });
   });
 });

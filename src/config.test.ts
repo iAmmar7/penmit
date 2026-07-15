@@ -22,7 +22,26 @@ describe('parseArgs', () => {
       setup: false,
       reset: false,
       yes: false,
+      json: false,
     });
+  });
+
+  it('parses config subcommand', () => {
+    expect(parseArgs(['config']).command).toBe('config');
+  });
+
+  it('parses config subcommand with flags', () => {
+    const result = parseArgs(['config', '--model', 'foo']);
+    expect(result.command).toBe('config');
+    expect(result.model).toBe('foo');
+  });
+
+  it('parses --json', () => {
+    expect(parseArgs(['config', '--json']).json).toBe(true);
+  });
+
+  it('throws Unknown command for unknown positional', () => {
+    expect(() => parseArgs(['confg'])).toThrow('Unknown command: confg');
   });
 
   it('parses --help', () => {
