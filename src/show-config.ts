@@ -105,11 +105,7 @@ export function computeEffectiveSettings(
     apiKey: computeApiKey(savedConfig, env, provider, ollamaMode),
     endpoint: computeEndpoint(env, provider, ollamaMode),
     maxLength: computeLimit(args.maxLength, savedConfig.maxLength, DEFAULT_MAX_COMMIT_LENGTH),
-    maxDiffBytes: computeLimit(
-      args.maxDiffBytes,
-      savedConfig.maxDiffBytes,
-      DEFAULT_MAX_DIFF_BYTES,
-    ),
+    maxDiffBytes: computeLimit(args.maxDiffBytes, savedConfig.maxDiffBytes, DEFAULT_MAX_DIFF_BYTES),
   };
 }
 

@@ -1,9 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-  computeEffectiveSettings,
-  getProviderLabel,
-  maskApiKey,
-} from './show-config.js';
+import { computeEffectiveSettings, getProviderLabel, maskApiKey } from './show-config.js';
 import { DEFAULT_CLOUD_MODEL, CLOUD_OLLAMA_URL, LOCAL_OLLAMA_URL } from './ollama.js';
 import { ANTHROPIC_API_URL } from './anthropic.js';
 import { OPENAI_API_URL } from './openai.js';
@@ -120,7 +116,11 @@ describe('computeEffectiveSettings', () => {
   });
 
   it('apiKey: saved key does not leak across providers', () => {
-    const saved: UserConfig = { provider: 'anthropic', model: 'claude-sonnet-4-6', apiKey: 'sk-ant-1234abcd' };
+    const saved: UserConfig = {
+      provider: 'anthropic',
+      model: 'claude-sonnet-4-6',
+      apiKey: 'sk-ant-1234abcd',
+    };
     const s = computeEffectiveSettings({ ...noArgs, provider: 'openai' }, saved, {});
     expect(s.apiKey.source).toBe('unset');
   });

@@ -64,7 +64,13 @@ function runConfigCommand(args: ParsedArgs, env: Record<string, string | undefin
   const configFileFound = existsSync(configPath);
 
   if (args.json) {
-    log.info(JSON.stringify({ configFile: { path: configPath, found: configFileFound }, ...settings }, null, 2));
+    log.info(
+      JSON.stringify(
+        { configFile: { path: configPath, found: configFileFound }, ...settings },
+        null,
+        2,
+      ),
+    );
     return;
   }
 
