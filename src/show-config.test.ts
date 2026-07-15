@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { computeEffectiveSettings, getProviderLabel, maskApiKey } from './show-config.js';
+import {
+  computeEffectiveSettings,
+  getProviderLabel,
+  lookupApiKey,
+  maskApiKey,
+} from './show-config.js';
 import { DEFAULT_CLOUD_MODEL, CLOUD_OLLAMA_URL, LOCAL_OLLAMA_URL } from './ollama.js';
 import { ANTHROPIC_API_URL } from './anthropic.js';
 import { OPENAI_API_URL } from './openai.js';
@@ -39,6 +44,62 @@ describe('getProviderLabel', () => {
     expect(getProviderLabel('openai')).toBe('OpenAI');
     expect(getProviderLabel('ollama', 'cloud')).toBe('Ollama Cloud');
     expect(getProviderLabel('ollama', 'local')).toBe('Local (Ollama)');
+  });
+});
+
+describe('lookupApiKey', () => {
+  it('returns the trimmed env key with its env var', () => {
+    const result = lookupApiKey(emptyConfig, { ANTHROPIC_API_KEY: '  sk-ant-env  ' }, {
+      provider: 'anthropic',
+    });
+    expect(result).toEqual({ key: 'sk-ant-env', source: 'env', envVar: 'ANTHROPIC_API_KEY' });
+  });
+
+  it('env key beats saved key', () => {
+    const saved: UserConfig = { provider: 'openai', apiKey: 'sk-saved' };
+    const result = lookupApiKey(saved, { OPENAI_API_KEY: 'sk-env' }, { provider: 'openai' });
+    expect(result).toEqual({ key: 'sk-env', source: 'env', envVar: 'OPENAI_API_KEY' });
+  });
+
+  it('falls back to the saved key when it was saved for the same provider', () => {
+    const saved: UserConfig = { provider: 'anthropic', apiKey: ' sk-ant-saved ' };
+    const result = lookupApiKey(saved, {}, { provider: 'anthropic' });
+    expect(result).toEqual({ key: 'sk-ant-saved', source: 'saved', envVar: 'ANTHROPIC_API_KEY' });
+  });
+
+  it('saved key does not leak across providers', () => {
+    const saved: UserConfig = { provider: 'anthropic', apiKey: 'sk-ant-saved' };
+    const result = lookupApiKey(saved, {}, { provider: 'openai' });
+    expect(result).toEqual({ source: 'unset', envVar: 'OPENAI_API_KEY' });
+  });
+
+  it('cloud ollama uses the saved key only when saved mode is cloud', () => {
+    const cloudSaved: UserConfig = { provider: 'ollama', ollamaMode: 'cloud', apiKey: 'sk-cloud' };
+    expect(lookupApiKey(cloudSaved, {}, { provider: 'ollama', ollamaMode: 'cloud' })).toEqual({
+      key: 'sk-cloud',
+      source: 'saved',
+      envVar: 'OLLAMA_API_KEY',
+    });
+
+    const localSaved: UserConfig = { provider: 'ollama', ollamaMode: 'local', apiKey: 'sk-stale' };
+    expect(lookupApiKey(localSaved, {}, { provider: 'ollama', ollamaMode: 'cloud' })).toEqual({
+      source: 'unset',
+      envVar: 'OLLAMA_API_KEY',
+    });
+  });
+
+  it('local ollama requires no key', () => {
+    const result = lookupApiKey(emptyConfig, { OLLAMA_API_KEY: 'sk-ignored' }, {
+      provider: 'ollama',
+      ollamaMode: 'local',
+    });
+    expect(result).toEqual({ source: 'unset' });
+  });
+
+  it('treats whitespace-only keys as unset', () => {
+    const saved: UserConfig = { provider: 'openai', apiKey: '   ' };
+    const result = lookupApiKey(saved, { OPENAI_API_KEY: '   ' }, { provider: 'openai' });
+    expect(result).toEqual({ source: 'unset', envVar: 'OPENAI_API_KEY' });
   });
 });
 

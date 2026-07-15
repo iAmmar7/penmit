@@ -1036,6 +1036,22 @@ describe('run', () => {
       expect(ollamaModule.getLocalModels).not.toHaveBeenCalled();
     });
 
+    it('lists cloud models using the saved API key when no env key is set', async () => {
+      vi.mocked(configModule.parseArgs).mockReturnValue({ ...DEFAULT_ARGS, command: 'models' });
+      vi.mocked(configModule.readUserConfig).mockReturnValue({
+        provider: 'ollama',
+        ollamaMode: 'cloud',
+        model: 'gpt-oss:20b',
+        apiKey: 'sk-saved-cloud',
+      });
+      vi.mocked(ollamaModule.getCloudModels).mockResolvedValue(['gpt-oss:20b']);
+
+      await run(['models'], {});
+
+      expect(ollamaModule.getCloudModels).toHaveBeenCalledWith('sk-saved-cloud');
+      expect(loggedOutput()).toContain('Models for Ollama Cloud:');
+    });
+
     it('exits with code 1 for cloud without an API key', async () => {
       vi.mocked(configModule.parseArgs).mockReturnValue({
         ...DEFAULT_ARGS,

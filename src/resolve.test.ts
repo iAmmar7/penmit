@@ -81,6 +81,14 @@ describe('resolveProvider', () => {
     expect(result.fromInteractive).toBe(true);
   });
 
+  it('--setup only bypasses saved config, not env vars', async () => {
+    const args: ParsedArgs = { ...noArgs, setup: true };
+    const saved: UserConfig = { provider: 'ollama', ollamaMode: 'local', model: 'llama3.2' };
+    const result = await resolveProvider(args, saved, { ANTHROPIC_API_KEY: 'sk-ant' });
+    expect(result).toEqual({ provider: 'anthropic', ollamaMode: undefined, fromInteractive: false });
+    expect(tuiModule.selectFromList).not.toHaveBeenCalled();
+  });
+
   it('shows interactive picker when no saved config and no env vars', async () => {
     vi.mocked(tuiModule.selectFromList).mockResolvedValue('ollama-local');
     const result = await resolveProvider(noArgs, emptyConfig, {});
