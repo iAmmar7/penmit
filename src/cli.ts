@@ -119,6 +119,15 @@ async function runModelsCommand(
   let models: { name: string; hint?: string }[];
   let note: string | undefined;
 
+  let cloudApiKey: string | undefined;
+  if (ollamaMode === 'cloud') {
+    cloudApiKey = lookupApiKey(savedConfig, env, { provider, ollamaMode }).key;
+    if (!cloudApiKey) {
+      log.error('Ollama Cloud requires an API key. Set it with: OLLAMA_API_KEY=... penmit models');
+      process.exit(1);
+    }
+  }
+
   try {
     if (provider === 'anthropic') {
       models = ANTHROPIC_MODELS;
@@ -127,14 +136,7 @@ async function runModelsCommand(
       models = OPENAI_MODELS;
       note = 'Curated list - any OpenAI model name works with --model.';
     } else if (ollamaMode === 'cloud') {
-      const { key: apiKey } = lookupApiKey(savedConfig, env, { provider, ollamaMode });
-      if (!apiKey) {
-        log.error(
-          'Ollama Cloud requires an API key. Set it with: OLLAMA_API_KEY=... penmit models',
-        );
-        process.exit(1);
-      }
-      models = (await getCloudModels(apiKey)).sort().map((name) => ({ name }));
+      models = (await getCloudModels(cloudApiKey!)).sort().map((name) => ({ name }));
       note = 'Catalog listing - some models are subscription-gated and may not run on a free tier.';
     } else {
       const tagsUrl = buildOllamaTagsUrl(buildOllamaChatUrl('local', env));

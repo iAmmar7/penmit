@@ -33,7 +33,7 @@ export function getProviderLabel(provider: Provider, ollamaMode?: OllamaMode): s
 }
 
 export function maskApiKey(key: string): string {
-  if (key.length < 12) return '****';
+  if (key.length < 16) return '****';
   return `${key.slice(0, 3)}…${key.slice(-4)}`;
 }
 

@@ -1067,6 +1067,7 @@ describe('run', () => {
       vi.mocked(configModule.readUserConfig).mockReturnValue({});
 
       await expect(run(['models', '--cloud'], {})).rejects.toThrow('process.exit(1)');
+      expect(errorSpy).toHaveBeenCalledTimes(1);
       expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('OLLAMA_API_KEY'));
       expect(ollamaModule.getCloudModels).not.toHaveBeenCalled();
     });

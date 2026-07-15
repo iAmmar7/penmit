@@ -31,10 +31,10 @@ describe('maskApiKey', () => {
     expect(maskApiKey('short')).toBe('****');
   });
 
-  it('fully masks keys under 12 characters', () => {
+  it('fully masks keys under 16 characters', () => {
     expect(maskApiKey('12345678')).toBe('****');
-    expect(maskApiKey('12345678901')).toBe('****');
-    expect(maskApiKey('123456789012')).toBe('123…9012');
+    expect(maskApiKey('123456789012345')).toBe('****');
+    expect(maskApiKey('1234567890123456')).toBe('123…3456');
   });
 });
 
@@ -195,7 +195,9 @@ describe('computeEffectiveSettings', () => {
       apiKey: 'sk-saved-1234abcd',
     };
 
-    const fromEnv = computeEffectiveSettings(noArgs, saved, { OLLAMA_API_KEY: 'sk-env-9876wxyz' });
+    const fromEnv = computeEffectiveSettings(noArgs, saved, {
+      OLLAMA_API_KEY: 'sk-env-98765wxyz',
+    });
     expect(fromEnv.apiKey).toEqual({ value: 'sk-…wxyz', source: 'env', detail: 'OLLAMA_API_KEY' });
 
     const fromSaved = computeEffectiveSettings(noArgs, saved, {});
