@@ -25,6 +25,12 @@ describe('maskApiKey', () => {
   it('fully masks short keys', () => {
     expect(maskApiKey('short')).toBe('****');
   });
+
+  it('fully masks keys under 12 characters', () => {
+    expect(maskApiKey('12345678')).toBe('****');
+    expect(maskApiKey('12345678901')).toBe('****');
+    expect(maskApiKey('123456789012')).toBe('123…9012');
+  });
 });
 
 describe('getProviderLabel', () => {

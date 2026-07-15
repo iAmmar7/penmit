@@ -61,10 +61,11 @@ export function parseArgs(argv: string[]): ParsedArgs {
 
     switch (arg) {
       case 'config':
-        result.command = 'config';
-        break;
       case 'models':
-        result.command = 'models';
+        if (result.command) {
+          throw new Error(`Unexpected argument: ${arg} (command already set to "${result.command}")`);
+        }
+        result.command = arg;
         break;
       case '--json':
         result.json = true;
@@ -142,6 +143,15 @@ export function parseArgs(argv: string[]): ParsedArgs {
         }
         throw new Error(`Unknown option: ${arg}`);
     }
+  }
+
+  if (result.command && (result.setup || result.reset)) {
+    const flag = result.setup ? '--setup' : '--reset';
+    throw new Error(`${flag} cannot be combined with the "${result.command}" command`);
+  }
+
+  if (result.json && !result.command) {
+    throw new Error('--json requires the "config" or "models" command');
   }
 
   return result;

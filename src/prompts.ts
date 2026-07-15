@@ -37,7 +37,7 @@ Options:
   --anthropic          Use Anthropic (Claude) for this run
   --openai             Use OpenAI (Codex/GPT) for this run
   --no-redact          Disable secret redaction for this run
-  --json               Output as JSON (use with config)
+  --json               Output as JSON (use with config or models)
   --setup              Re-run the setup wizard to change saved defaults
   --reset              Delete saved settings and return to defaults
   -y, --yes            Skip confirmation prompt (use with --reset)
