@@ -8,12 +8,17 @@ export type SettingSource = 'flag' | 'env' | 'saved' | 'default' | 'unset';
 
 export interface EffectiveSetting {
   value?: string;
+  label?: string;
   source: SettingSource;
   detail?: string;
 }
 
+export interface ProviderSetting extends EffectiveSetting {
+  mode?: OllamaMode;
+}
+
 export interface EffectiveSettings {
-  provider: EffectiveSetting;
+  provider: ProviderSetting;
   model: EffectiveSetting;
   apiKey: EffectiveSetting;
   endpoint: EffectiveSetting;
@@ -73,7 +78,26 @@ export function lookupApiKey(
 export interface EffectiveProvider {
   provider?: Provider;
   ollamaMode?: OllamaMode;
-  setting: EffectiveSetting;
+  setting: ProviderSetting;
+}
+
+function providerSetting(
+  provider: Provider,
+  ollamaMode: OllamaMode | undefined,
+  source: SettingSource,
+  detail?: string,
+): EffectiveProvider {
+  return {
+    provider,
+    ollamaMode,
+    setting: {
+      value: provider,
+      mode: ollamaMode,
+      label: getProviderLabel(provider, ollamaMode),
+      source,
+      detail,
+    },
+  };
 }
 
 export function resolveEffectiveProvider(
@@ -82,40 +106,19 @@ export function resolveEffectiveProvider(
   env: Record<string, string | undefined>,
 ): EffectiveProvider {
   if (args.provider) {
-    return {
-      provider: args.provider,
-      ollamaMode: args.ollamaMode,
-      setting: { value: getProviderLabel(args.provider, args.ollamaMode), source: 'flag' },
-    };
+    return providerSetting(args.provider, args.ollamaMode, 'flag');
   }
   if (env.ANTHROPIC_API_KEY) {
-    return {
-      provider: 'anthropic',
-      setting: { value: 'Anthropic', source: 'env', detail: 'ANTHROPIC_API_KEY' },
-    };
+    return providerSetting('anthropic', undefined, 'env', 'ANTHROPIC_API_KEY');
   }
   if (env.OPENAI_API_KEY) {
-    return {
-      provider: 'openai',
-      setting: { value: 'OpenAI', source: 'env', detail: 'OPENAI_API_KEY' },
-    };
+    return providerSetting('openai', undefined, 'env', 'OPENAI_API_KEY');
   }
   if (env.OLLAMA_API_KEY) {
-    return {
-      provider: 'ollama',
-      ollamaMode: 'cloud',
-      setting: { value: 'Ollama Cloud', source: 'env', detail: 'OLLAMA_API_KEY' },
-    };
+    return providerSetting('ollama', 'cloud', 'env', 'OLLAMA_API_KEY');
   }
   if (savedConfig.provider) {
-    return {
-      provider: savedConfig.provider,
-      ollamaMode: savedConfig.ollamaMode,
-      setting: {
-        value: getProviderLabel(savedConfig.provider, savedConfig.ollamaMode),
-        source: 'saved',
-      },
-    };
+    return providerSetting(savedConfig.provider, savedConfig.ollamaMode, 'saved');
   }
   return { setting: { source: 'unset' } };
 }

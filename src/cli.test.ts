@@ -982,7 +982,12 @@ describe('run', () => {
         model: { value?: string; source: string };
       };
       expect(parsed.configFile.path).toBe('/fake/.config/penmit/config.json');
-      expect(parsed.provider).toEqual({ value: 'Local (Ollama)', source: 'saved' });
+      expect(parsed.provider).toEqual({
+        value: 'ollama',
+        mode: 'local',
+        label: 'Local (Ollama)',
+        source: 'saved',
+      });
       expect(parsed.model).toEqual({ value: 'llama3.2', source: 'saved' });
     });
 

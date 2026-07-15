@@ -63,6 +63,12 @@ describe('parseArgs', () => {
     expect(parseArgs(['--json', 'models']).json).toBe(true);
   });
 
+  it('skips validation when --help or --version is present', () => {
+    expect(parseArgs(['--help', '--json']).help).toBe(true);
+    expect(parseArgs(['--version', '--json']).version).toBe(true);
+    expect(parseArgs(['config', '--setup', '--help']).help).toBe(true);
+  });
+
   it('throws when --setup or --reset is combined with a command', () => {
     expect(() => parseArgs(['config', '--setup'])).toThrow(
       '--setup cannot be combined with the "config" command',

@@ -85,7 +85,11 @@ describe('resolveProvider', () => {
     const args: ParsedArgs = { ...noArgs, setup: true };
     const saved: UserConfig = { provider: 'ollama', ollamaMode: 'local', model: 'llama3.2' };
     const result = await resolveProvider(args, saved, { ANTHROPIC_API_KEY: 'sk-ant' });
-    expect(result).toEqual({ provider: 'anthropic', ollamaMode: undefined, fromInteractive: false });
+    expect(result).toEqual({
+      provider: 'anthropic',
+      ollamaMode: undefined,
+      fromInteractive: false,
+    });
     expect(tuiModule.selectFromList).not.toHaveBeenCalled();
   });
 

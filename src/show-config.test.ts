@@ -49,9 +49,13 @@ describe('getProviderLabel', () => {
 
 describe('lookupApiKey', () => {
   it('returns the trimmed env key with its env var', () => {
-    const result = lookupApiKey(emptyConfig, { ANTHROPIC_API_KEY: '  sk-ant-env  ' }, {
-      provider: 'anthropic',
-    });
+    const result = lookupApiKey(
+      emptyConfig,
+      { ANTHROPIC_API_KEY: '  sk-ant-env  ' },
+      {
+        provider: 'anthropic',
+      },
+    );
     expect(result).toEqual({ key: 'sk-ant-env', source: 'env', envVar: 'ANTHROPIC_API_KEY' });
   });
 
@@ -89,10 +93,14 @@ describe('lookupApiKey', () => {
   });
 
   it('local ollama requires no key', () => {
-    const result = lookupApiKey(emptyConfig, { OLLAMA_API_KEY: 'sk-ignored' }, {
-      provider: 'ollama',
-      ollamaMode: 'local',
-    });
+    const result = lookupApiKey(
+      emptyConfig,
+      { OLLAMA_API_KEY: 'sk-ignored' },
+      {
+        provider: 'ollama',
+        ollamaMode: 'local',
+      },
+    );
     expect(result).toEqual({ source: 'unset' });
   });
 
@@ -123,17 +131,29 @@ describe('computeEffectiveSettings', () => {
       saved,
       env,
     );
-    expect(fromFlag.provider).toEqual({ value: 'Local (Ollama)', source: 'flag' });
+    expect(fromFlag.provider).toEqual({
+      value: 'ollama',
+      mode: 'local',
+      label: 'Local (Ollama)',
+      source: 'flag',
+    });
 
     const fromEnv = computeEffectiveSettings(noArgs, saved, env);
     expect(fromEnv.provider).toEqual({
-      value: 'Anthropic',
+      value: 'anthropic',
+      mode: undefined,
+      label: 'Anthropic',
       source: 'env',
       detail: 'ANTHROPIC_API_KEY',
     });
 
     const fromSaved = computeEffectiveSettings(noArgs, saved, {});
-    expect(fromSaved.provider).toEqual({ value: 'OpenAI', source: 'saved' });
+    expect(fromSaved.provider).toEqual({
+      value: 'openai',
+      mode: undefined,
+      label: 'OpenAI',
+      source: 'saved',
+    });
   });
 
   it('model: flag beats saved, saved requires provider match', () => {

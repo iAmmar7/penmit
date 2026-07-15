@@ -80,7 +80,7 @@ function runConfigCommand(args: ParsedArgs, env: Record<string, string | undefin
     return colorize(colors.dim, `(${label})`);
   };
   const formatValue = (s: EffectiveSetting): string => {
-    if (s.value) return s.value;
+    if (s.value) return s.label ?? s.value;
     return s.detail === 'not required' ? '(not required)' : '(not set)';
   };
   const row = (label: string, s: EffectiveSetting): string =>

@@ -63,7 +63,9 @@ export function parseArgs(argv: string[]): ParsedArgs {
       case 'config':
       case 'models':
         if (result.command) {
-          throw new Error(`Unexpected argument: ${arg} (command already set to "${result.command}")`);
+          throw new Error(
+            `Unexpected argument: ${arg} (command already set to "${result.command}")`,
+          );
         }
         result.command = arg;
         break;
@@ -143,6 +145,10 @@ export function parseArgs(argv: string[]): ParsedArgs {
         }
         throw new Error(`Unknown option: ${arg}`);
     }
+  }
+
+  if (result.help || result.version) {
+    return result;
   }
 
   if (result.command && (result.setup || result.reset)) {
