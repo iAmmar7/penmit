@@ -64,6 +64,13 @@ async function buildOllamaHttpError(
     );
   }
 
+  if (response.status === 401 && opts.mode === 'cloud') {
+    return new OllamaError(
+      `Ollama Cloud returned an error: ${detail}\n` +
+        'Check your API key. Set it with: OLLAMA_API_KEY=... penmit',
+    );
+  }
+
   const who = opts.mode === 'cloud' ? 'Ollama Cloud' : 'Ollama';
   return new OllamaError(`${who} returned an error: ${detail}`);
 }

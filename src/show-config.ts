@@ -108,13 +108,13 @@ export function resolveEffectiveProvider(
   if (args.provider) {
     return providerSetting(args.provider, args.ollamaMode, 'flag');
   }
-  if (env.ANTHROPIC_API_KEY) {
+  if (env.ANTHROPIC_API_KEY?.trim()) {
     return providerSetting('anthropic', undefined, 'env', 'ANTHROPIC_API_KEY');
   }
-  if (env.OPENAI_API_KEY) {
+  if (env.OPENAI_API_KEY?.trim()) {
     return providerSetting('openai', undefined, 'env', 'OPENAI_API_KEY');
   }
-  if (env.OLLAMA_API_KEY) {
+  if (env.OLLAMA_API_KEY?.trim()) {
     return providerSetting('ollama', 'cloud', 'env', 'OLLAMA_API_KEY');
   }
   if (savedConfig.provider) {

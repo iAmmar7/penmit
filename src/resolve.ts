@@ -39,15 +39,14 @@ export async function resolveProvider(
   return { provider: 'ollama', ollamaMode: 'local', fromInteractive: true };
 }
 
-// Resolves an API key: env var > saved config > interactive prompt.
+// Resolves an API key: the key found by lookupApiKey > interactive prompt.
 // Calls process.exit(1) if no key can be obtained in a non-TTY context.
 export async function resolveApiKey(
-  envKey: string | undefined,
-  savedKey: string | undefined,
+  key: string | undefined,
   { label, envVarName }: { label: string; envVarName: string },
 ): Promise<string> {
-  const key = envKey?.trim() || savedKey?.trim();
-  if (key) return key;
+  const trimmed = key?.trim();
+  if (trimmed) return trimmed;
 
   if (!process.stdin.isTTY) {
     log.error(`${label} provider requires ${envVarName}.\nSet it with: ${envVarName}=... penmit`);

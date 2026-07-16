@@ -159,23 +159,13 @@ describe('resolveApiKey', () => {
 
   const opts = { label: 'TestProvider', envVarName: 'TEST_API_KEY' };
 
-  it('returns env key when present', async () => {
-    const result = await resolveApiKey('sk-env', undefined, opts);
+  it('returns the key when present', async () => {
+    const result = await resolveApiKey('sk-env', opts);
     expect(result).toBe('sk-env');
   });
 
-  it('trims whitespace from env key', async () => {
-    const result = await resolveApiKey('  sk-env  ', undefined, opts);
-    expect(result).toBe('sk-env');
-  });
-
-  it('returns saved key when env key is absent', async () => {
-    const result = await resolveApiKey(undefined, 'sk-saved', opts);
-    expect(result).toBe('sk-saved');
-  });
-
-  it('prefers env key over saved key', async () => {
-    const result = await resolveApiKey('sk-env', 'sk-saved', opts);
+  it('trims whitespace from the key', async () => {
+    const result = await resolveApiKey('  sk-env  ', opts);
     expect(result).toBe('sk-env');
   });
 
@@ -183,7 +173,7 @@ describe('resolveApiKey', () => {
     const origIsTTY = process.stdin.isTTY;
     Object.defineProperty(process.stdin, 'isTTY', { value: false, configurable: true });
     try {
-      await expect(resolveApiKey(undefined, undefined, opts)).rejects.toThrow('process.exit(1)');
+      await expect(resolveApiKey(undefined, opts)).rejects.toThrow('process.exit(1)');
       expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('TEST_API_KEY'));
     } finally {
       Object.defineProperty(process.stdin, 'isTTY', { value: origIsTTY, configurable: true });
@@ -194,7 +184,7 @@ describe('resolveApiKey', () => {
     Object.defineProperty(process.stdin, 'isTTY', { value: true, configurable: true });
     vi.mocked(tuiModule.promptInput).mockResolvedValue('sk-entered');
     try {
-      const result = await resolveApiKey(undefined, undefined, opts);
+      const result = await resolveApiKey(undefined, opts);
       expect(tuiModule.promptInput).toHaveBeenCalledWith('TestProvider API key: ');
       expect(result).toBe('sk-entered');
     } finally {
@@ -206,7 +196,7 @@ describe('resolveApiKey', () => {
     Object.defineProperty(process.stdin, 'isTTY', { value: true, configurable: true });
     vi.mocked(tuiModule.promptInput).mockResolvedValue('');
     try {
-      await expect(resolveApiKey(undefined, undefined, opts)).rejects.toThrow('process.exit(1)');
+      await expect(resolveApiKey(undefined, opts)).rejects.toThrow('process.exit(1)');
       expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('API key is required'));
     } finally {
       Object.defineProperty(process.stdin, 'isTTY', { value: undefined, configurable: true });

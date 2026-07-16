@@ -83,18 +83,22 @@ function runConfigCommand(args: ParsedArgs, env: Record<string, string | undefin
     if (s.value) return s.label ?? s.value;
     return s.detail === 'not required' ? '(not required)' : '(not set)';
   };
-  const row = (label: string, s: EffectiveSetting): string =>
-    `${label.padEnd(16)}${formatValue(s).padEnd(28)} ${formatSource(s)}`;
+  const rows: Array<[string, EffectiveSetting]> = [
+    ['Provider:', settings.provider],
+    ['Model:', settings.model],
+    ['API key:', settings.apiKey],
+    ['Endpoint:', settings.endpoint],
+    ['Max length:', settings.maxLength],
+    ['Max diff bytes:', settings.maxDiffBytes],
+  ];
+  const valueWidth = Math.max(...rows.map(([, s]) => formatValue(s).length)) + 1;
 
   log.info(
     `${'Config file:'.padEnd(16)}${configPath} ${colorize(colors.dim, configFileFound ? '(found)' : '(not found)')}`,
   );
-  log.info(row('Provider:', settings.provider));
-  log.info(row('Model:', settings.model));
-  log.info(row('API key:', settings.apiKey));
-  log.info(row('Endpoint:', settings.endpoint));
-  log.info(row('Max length:', settings.maxLength));
-  log.info(row('Max diff bytes:', settings.maxDiffBytes));
+  for (const [label, s] of rows) {
+    log.info(`${label.padEnd(16)}${formatValue(s).padEnd(valueWidth)}${formatSource(s)}`);
+  }
 
   if (settings.provider.source === 'unset') {
     log.info(colorize(colors.dim, '\nNo provider configured yet - run penmit to configure.'));
@@ -269,7 +273,7 @@ export async function run(
   let apiKey: string | undefined;
   const keyLookup = lookupApiKey(savedConfig, env, { provider, ollamaMode });
   if (keyLookup.envVar) {
-    apiKey = await resolveApiKey(keyLookup.key, undefined, {
+    apiKey = await resolveApiKey(keyLookup.key, {
       label: getProviderLabel(provider, ollamaMode),
       envVarName: keyLookup.envVar,
     });

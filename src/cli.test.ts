@@ -115,6 +115,10 @@ describe('run', () => {
     return runFn(argv, env ?? {});
   }
 
+  function loggedOutput(): string {
+    return logSpy.mock.calls.flat().map(String).join('\n');
+  }
+
   describe('argument handling', () => {
     it('exits with code 1 when parseArgs throws an Error', async () => {
       vi.mocked(configModule.parseArgs).mockImplementation(() => {
@@ -911,10 +915,6 @@ describe('run', () => {
   });
 
   describe('config subcommand', () => {
-    function loggedOutput(): string {
-      return logSpy.mock.calls.flat().map(String).join('\n');
-    }
-
     it('prints effective settings without prompting, fetching, or writing', async () => {
       vi.mocked(configModule.parseArgs).mockReturnValue({ ...DEFAULT_ARGS, command: 'config' });
 
@@ -1005,10 +1005,6 @@ describe('run', () => {
   });
 
   describe('models subcommand', () => {
-    function loggedOutput(): string {
-      return logSpy.mock.calls.flat().map(String).join('\n');
-    }
-
     it('lists local models without generating or prompting', async () => {
       vi.mocked(configModule.parseArgs).mockReturnValue({ ...DEFAULT_ARGS, command: 'models' });
       vi.mocked(ollamaModule.getLocalModels).mockResolvedValue(['mistral', 'llama3.2']);
