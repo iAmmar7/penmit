@@ -8,12 +8,15 @@ describe('log', () => {
   beforeEach(() => {
     logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    process.env.FORCE_COLOR = '1';
   });
 
   afterEach(() => {
     logSpy.mockRestore();
     errorSpy.mockRestore();
     delete process.env.DEBUG;
+    delete process.env.FORCE_COLOR;
+    delete process.env.NO_COLOR;
   });
 
   it('info writes to stdout via console.log', () => {
@@ -46,10 +49,57 @@ describe('log', () => {
     expect(errorSpy).toHaveBeenCalledWith(`${colors.gray}visible${colors.reset}`);
     expect(logSpy).not.toHaveBeenCalled();
   });
+
+  it('warn and error emit plain text when NO_COLOR is set', () => {
+    process.env.NO_COLOR = '1';
+    log.warn('caution');
+    log.error('failure');
+    expect(errorSpy).toHaveBeenNthCalledWith(1, 'caution');
+    expect(errorSpy).toHaveBeenNthCalledWith(2, 'failure');
+  });
+
+  it('warn emits plain text when stderr is not a TTY', () => {
+    delete process.env.FORCE_COLOR;
+    const isTTY = process.stderr.isTTY;
+    process.stderr.isTTY = false;
+    try {
+      log.warn('caution');
+      expect(errorSpy).toHaveBeenCalledWith('caution');
+    } finally {
+      process.stderr.isTTY = isTTY;
+    }
+  });
 });
 
 describe('colorize', () => {
-  it('wraps text with color and reset', () => {
+  afterEach(() => {
+    delete process.env.FORCE_COLOR;
+    delete process.env.NO_COLOR;
+  });
+
+  it('wraps text with color and reset when color is enabled', () => {
+    process.env.FORCE_COLOR = '1';
     expect(colorize(colors.cyan, 'test')).toBe(`${colors.cyan}test${colors.reset}`);
+  });
+
+  it('returns plain text when NO_COLOR is set', () => {
+    process.env.NO_COLOR = '1';
+    expect(colorize(colors.cyan, 'test')).toBe('test');
+  });
+
+  it('returns plain text when stdout is not a TTY', () => {
+    const isTTY = process.stdout.isTTY;
+    process.stdout.isTTY = false;
+    try {
+      expect(colorize(colors.cyan, 'test')).toBe('test');
+    } finally {
+      process.stdout.isTTY = isTTY;
+    }
+  });
+
+  it('NO_COLOR wins over FORCE_COLOR', () => {
+    process.env.NO_COLOR = '1';
+    process.env.FORCE_COLOR = '1';
+    expect(colorize(colors.cyan, 'test')).toBe('test');
   });
 });

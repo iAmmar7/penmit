@@ -53,12 +53,25 @@ export function parseArgs(argv: string[]): ParsedArgs {
     setup: false,
     reset: false,
     yes: false,
+    json: false,
   };
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
 
     switch (arg) {
+      case 'config':
+      case 'models':
+        if (result.command) {
+          throw new Error(
+            `Unexpected argument: ${arg} (command already set to "${result.command}")`,
+          );
+        }
+        result.command = arg;
+        break;
+      case '--json':
+        result.json = true;
+        break;
       case '--help':
       case '-h':
         result.help = true;
@@ -127,8 +140,24 @@ export function parseArgs(argv: string[]): ParsedArgs {
         break;
       }
       default:
+        if (!arg.startsWith('-')) {
+          throw new Error(`Unknown command: ${arg}`);
+        }
         throw new Error(`Unknown option: ${arg}`);
     }
+  }
+
+  if (result.help || result.version) {
+    return result;
+  }
+
+  if (result.command && (result.setup || result.reset)) {
+    const flag = result.setup ? '--setup' : '--reset';
+    throw new Error(`${flag} cannot be combined with the "${result.command}" command`);
+  }
+
+  if (result.json && !result.command) {
+    throw new Error('--json requires the "config" or "models" command');
   }
 
   return result;

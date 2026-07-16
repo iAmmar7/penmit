@@ -18,9 +18,14 @@ import {
   generateCommitMessage as generateOllamaMessage,
   buildOllamaChatUrl,
   buildOllamaTagsUrl,
+  getLocalModels,
+  getCloudModels,
 } from './ollama.js';
-import { generateCommitMessage as generateAnthropicMessage } from './anthropic.js';
-import { generateCommitMessage as generateOpenAIMessage } from './openai.js';
+import {
+  generateCommitMessage as generateAnthropicMessage,
+  ANTHROPIC_MODELS,
+} from './anthropic.js';
+import { generateCommitMessage as generateOpenAIMessage, OPENAI_MODELS } from './openai.js';
 import { promptUser, editMessage, confirm } from './tui.js';
 import { createSpinner } from './spinner.js';
 import {
@@ -31,8 +36,15 @@ import {
   resolveOllamaModel,
 } from './resolve.js';
 import { redactSecrets, isCloudProvider } from './redact.js';
+import {
+  computeEffectiveSettings,
+  resolveEffectiveProvider,
+  getProviderLabel,
+  lookupApiKey,
+  type EffectiveSetting,
+} from './show-config.js';
 import { HELP_TEXT } from './prompts.js';
-import { log } from './logger.js';
+import { log, colors, colorize } from './logger.js';
 import type { OllamaMode, ParsedArgs, Provider, UserConfig } from './types.js';
 
 function getVersion(): string {
@@ -46,10 +58,116 @@ function getVersion(): string {
   }
 }
 
-function getProviderLabel(provider: Provider, ollamaMode?: OllamaMode): string {
-  if (provider === 'anthropic') return 'Anthropic';
-  if (provider === 'openai') return 'OpenAI';
-  return ollamaMode === 'cloud' ? 'Ollama Cloud' : 'Local (Ollama)';
+function runConfigCommand(args: ParsedArgs, env: Record<string, string | undefined>): void {
+  const configPath = getUserConfigPath();
+  const savedConfig = readUserConfig();
+  const settings = computeEffectiveSettings(args, savedConfig, env);
+  const configFileFound = existsSync(configPath);
+
+  if (args.json) {
+    log.info(
+      JSON.stringify(
+        { configFile: { path: configPath, found: configFileFound }, ...settings },
+        null,
+        2,
+      ),
+    );
+    return;
+  }
+
+  const formatSource = (s: EffectiveSetting): string => {
+    const label = s.detail ? `${s.source}: ${s.detail}` : s.source;
+    return colorize(colors.dim, `(${label})`);
+  };
+  const formatValue = (s: EffectiveSetting): string => {
+    if (s.value) return s.label ?? s.value;
+    return s.detail === 'not required' ? '(not required)' : '(not set)';
+  };
+  const rows: Array<[string, EffectiveSetting]> = [
+    ['Provider:', settings.provider],
+    ['Model:', settings.model],
+    ['API key:', settings.apiKey],
+    ['Endpoint:', settings.endpoint],
+    ['Max length:', settings.maxLength],
+    ['Max diff bytes:', settings.maxDiffBytes],
+  ];
+  const valueWidth = Math.max(...rows.map(([, s]) => formatValue(s).length)) + 1;
+
+  log.info(
+    `${'Config file:'.padEnd(16)}${configPath} ${colorize(colors.dim, configFileFound ? '(found)' : '(not found)')}`,
+  );
+  for (const [label, s] of rows) {
+    log.info(`${label.padEnd(16)}${formatValue(s).padEnd(valueWidth)}${formatSource(s)}`);
+  }
+
+  if (settings.provider.source === 'unset') {
+    log.info(colorize(colors.dim, '\nNo provider configured yet - run penmit to configure.'));
+  }
+}
+
+async function runModelsCommand(
+  args: ParsedArgs,
+  env: Record<string, string | undefined>,
+): Promise<void> {
+  const savedConfig = readUserConfig();
+  const { provider, ollamaMode } = resolveEffectiveProvider(args, savedConfig, env);
+
+  if (!provider) {
+    log.error(
+      'No provider configured. Run penmit to set one up, or pass --local/--cloud/--anthropic/--openai.',
+    );
+    process.exit(1);
+  }
+
+  const label = getProviderLabel(provider, ollamaMode);
+  let models: { name: string; hint?: string }[];
+  let note: string | undefined;
+
+  let cloudApiKey: string | undefined;
+  if (ollamaMode === 'cloud') {
+    cloudApiKey = lookupApiKey(savedConfig, env, { provider, ollamaMode }).key;
+    if (!cloudApiKey) {
+      log.error('Ollama Cloud requires an API key. Set it with: OLLAMA_API_KEY=... penmit models');
+      process.exit(1);
+    }
+  }
+
+  try {
+    if (provider === 'anthropic') {
+      models = ANTHROPIC_MODELS;
+      note = 'Curated list - any Anthropic model name works with --model.';
+    } else if (provider === 'openai') {
+      models = OPENAI_MODELS;
+      note = 'Curated list - any OpenAI model name works with --model.';
+    } else if (ollamaMode === 'cloud') {
+      models = (await getCloudModels(cloudApiKey!)).sort().map((name) => ({ name }));
+      note = 'Catalog listing - some models are subscription-gated and may not run on a free tier.';
+    } else {
+      const tagsUrl = buildOllamaTagsUrl(buildOllamaChatUrl('local', env));
+      models = (await getLocalModels(tagsUrl)).sort().map((name) => ({ name }));
+      if (models.length === 0) note = 'No models installed. Pull one with: ollama pull llama3.2';
+    }
+  } catch (err) {
+    log.error(err instanceof LLMError ? err.message : String(err));
+    process.exit(1);
+  }
+
+  if (args.json) {
+    log.info(
+      JSON.stringify(
+        { provider, mode: ollamaMode, label, models: models.map((m) => m.name), note },
+        null,
+        2,
+      ),
+    );
+    return;
+  }
+
+  log.info(`Models for ${label}:`);
+  for (const m of models) {
+    log.info(m.hint ? `  ${m.name.padEnd(28)} ${colorize(colors.dim, m.hint)}` : `  ${m.name}`);
+  }
+  if (note) log.info(colorize(colors.dim, note));
 }
 
 const generators: Record<
@@ -107,6 +225,16 @@ export async function run(
     return;
   }
 
+  if (args.command === 'config') {
+    runConfigCommand(args, env);
+    return;
+  }
+
+  if (args.command === 'models') {
+    await runModelsCommand(args, env);
+    return;
+  }
+
   if (args.reset) {
     const configPath = getUserConfigPath();
     if (!existsSync(configPath)) {
@@ -143,31 +271,11 @@ export async function run(
 
   // Resolve API key (only for providers that require one)
   let apiKey: string | undefined;
-  const providerKey = ollamaMode === 'cloud' ? 'ollama-cloud' : provider;
-  const apiKeyConfigs: Partial<
-    Record<string, { envVar: string; label: string; savedKey: string | undefined }>
-  > = {
-    anthropic: {
-      envVar: 'ANTHROPIC_API_KEY',
-      label: 'Anthropic',
-      savedKey: savedConfig.provider === 'anthropic' ? savedConfig.apiKey : undefined,
-    },
-    openai: {
-      envVar: 'OPENAI_API_KEY',
-      label: 'OpenAI',
-      savedKey: savedConfig.provider === 'openai' ? savedConfig.apiKey : undefined,
-    },
-    'ollama-cloud': {
-      envVar: 'OLLAMA_API_KEY',
-      label: 'Ollama Cloud',
-      savedKey: savedConfig.ollamaMode === 'cloud' ? savedConfig.apiKey : undefined,
-    },
-  };
-  const keyConf = apiKeyConfigs[providerKey];
-  if (keyConf) {
-    apiKey = await resolveApiKey(env[keyConf.envVar], keyConf.savedKey, {
-      label: keyConf.label,
-      envVarName: keyConf.envVar,
+  const keyLookup = lookupApiKey(savedConfig, env, { provider, ollamaMode });
+  if (keyLookup.envVar) {
+    apiKey = await resolveApiKey(keyLookup.key, {
+      label: getProviderLabel(provider, ollamaMode),
+      envVarName: keyLookup.envVar,
     });
   }
 

@@ -22,7 +22,75 @@ describe('parseArgs', () => {
       setup: false,
       reset: false,
       yes: false,
+      json: false,
     });
+  });
+
+  it('parses config subcommand', () => {
+    expect(parseArgs(['config']).command).toBe('config');
+  });
+
+  it('parses models subcommand', () => {
+    expect(parseArgs(['models']).command).toBe('models');
+  });
+
+  it('parses models subcommand with provider flag', () => {
+    const result = parseArgs(['models', '--cloud']);
+    expect(result.command).toBe('models');
+    expect(result.provider).toBe('ollama');
+    expect(result.ollamaMode).toBe('cloud');
+  });
+
+  it('parses config subcommand with flags', () => {
+    const result = parseArgs(['config', '--model', 'foo']);
+    expect(result.command).toBe('config');
+    expect(result.model).toBe('foo');
+  });
+
+  it('parses --json', () => {
+    expect(parseArgs(['config', '--json']).json).toBe(true);
+  });
+
+  it('throws Unknown command for unknown positional', () => {
+    expect(() => parseArgs(['confg'])).toThrow('Unknown command: confg');
+  });
+
+  it('throws when --json is used without a command', () => {
+    expect(() => parseArgs(['--json'])).toThrow('--json requires the "config" or "models" command');
+  });
+
+  it('accepts --json before the command', () => {
+    expect(parseArgs(['--json', 'models']).json).toBe(true);
+  });
+
+  it('skips validation when --help or --version is present', () => {
+    expect(parseArgs(['--help', '--json']).help).toBe(true);
+    expect(parseArgs(['--version', '--json']).version).toBe(true);
+    expect(parseArgs(['config', '--setup', '--help']).help).toBe(true);
+  });
+
+  it('throws when --setup or --reset is combined with a command', () => {
+    expect(() => parseArgs(['config', '--setup'])).toThrow(
+      '--setup cannot be combined with the "config" command',
+    );
+    expect(() => parseArgs(['models', '--reset'])).toThrow(
+      '--reset cannot be combined with the "models" command',
+    );
+    expect(() => parseArgs(['--setup', 'config'])).toThrow(
+      '--setup cannot be combined with the "config" command',
+    );
+  });
+
+  it('throws when two commands are given', () => {
+    expect(() => parseArgs(['config', 'models'])).toThrow(
+      'Unexpected argument: models (command already set to "config")',
+    );
+    expect(() => parseArgs(['models', 'config'])).toThrow(
+      'Unexpected argument: config (command already set to "models")',
+    );
+    expect(() => parseArgs(['config', 'config'])).toThrow(
+      'Unexpected argument: config (command already set to "config")',
+    );
   });
 
   it('parses --help', () => {

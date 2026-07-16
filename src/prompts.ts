@@ -22,7 +22,11 @@ export const HELP_TEXT = `
 penmit - AI-powered git commit message generator
 
 Usage:
-  penmit [options]
+  penmit [command] [options]
+
+Commands:
+  config               Show effective settings and where each value comes from
+  models               List available models for the effective provider
 
 Options:
   -m, --model <name>   Model to use (overrides saved default for this run)
@@ -33,6 +37,7 @@ Options:
   --anthropic          Use Anthropic (Claude) for this run
   --openai             Use OpenAI (Codex/GPT) for this run
   --no-redact          Disable secret redaction for this run
+  --json               Output as JSON (use with config or models)
   --setup              Re-run the setup wizard to change saved defaults
   --reset              Delete saved settings and return to defaults
   -y, --yes            Skip confirmation prompt (use with --reset)
@@ -48,10 +53,14 @@ Environment variables:
 
 Examples:
   penmit
+  penmit config
+  penmit config --json
+  penmit models
+  penmit models --cloud
   penmit --model mistral
   penmit --anthropic --model claude-haiku-4-5-20251001
   penmit --openai --model codex-mini-latest
-  penmit --cloud --model devstral-2
+  penmit --cloud --model gpt-oss:20b
   penmit --setup
   penmit --reset
   penmit --reset --yes

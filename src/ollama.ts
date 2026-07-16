@@ -7,7 +7,8 @@ export const OLLAMA_CHAT_PATH = '/api/chat';
 export const OLLAMA_TAGS_PATH = '/api/tags';
 export const LOCAL_OLLAMA_URL = `http://localhost:11434${OLLAMA_CHAT_PATH}`;
 export const CLOUD_OLLAMA_URL = `https://ollama.com${OLLAMA_CHAT_PATH}`;
-export const DEFAULT_CLOUD_MODEL = 'devstral-small-2:24b';
+export const CLOUD_TAGS_URL = `https://ollama.com${OLLAMA_TAGS_PATH}`;
+export const DEFAULT_CLOUD_MODEL = 'gpt-oss:20b';
 
 // OLLAMA_HOST is Ollama's own env var for configuring the server address.
 // The Ollama client (ollama run, ollama pull, etc.) also reads it to know where to connect.
@@ -38,22 +39,64 @@ export function buildOllamaTagsUrl(chatUrl: string): string {
   return chatUrl.replace(OLLAMA_CHAT_PATH, OLLAMA_TAGS_PATH);
 }
 
-export async function getLocalModels(
-  tagsUrl: string,
-  fetchFn: typeof globalThis.fetch = globalThis.fetch,
-): Promise<string[]> {
-  let response: Response;
-  try {
-    response = await fetchFn(tagsUrl);
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    throw new OllamaError(
-      `Could not connect to Ollama: ${msg}. Make sure it is running with: ollama serve`,
+// Ollama error bodies are {"error": "<string>"} (a string, unlike Anthropic/OpenAI's object).
+async function buildOllamaHttpError(
+  response: Response,
+  opts: { model?: string; mode?: OllamaMode },
+): Promise<OllamaError> {
+  const errBody = (await response.json().catch(() => ({}))) as { error?: unknown };
+  const detail =
+    typeof errBody.error === 'string' && errBody.error
+      ? errBody.error
+      : `${response.status} ${response.statusText}`;
+
+  if ((response.status === 404 || response.status === 410) && opts.model) {
+    if (opts.mode === 'cloud') {
+      return new OllamaError(
+        `Model "${opts.model}" is not available on Ollama Cloud (${detail}).\n` +
+          'Pick another model: https://ollama.com/search?c=cloud\n' +
+          'Then run: penmit --cloud --model <name> --setup to save it as your default.',
+      );
+    }
+    return new OllamaError(
+      `Model "${opts.model}" is not installed locally (${detail}).\n` +
+        `Pull it with: ollama pull ${opts.model}`,
     );
   }
 
+  if (response.status === 401 && opts.mode === 'cloud') {
+    return new OllamaError(
+      `Ollama Cloud returned an error: ${detail}\n` +
+        'Check your API key. Set it with: OLLAMA_API_KEY=... penmit',
+    );
+  }
+
+  const who = opts.mode === 'cloud' ? 'Ollama Cloud' : 'Ollama';
+  return new OllamaError(`${who} returned an error: ${detail}`);
+}
+
+async function fetchModelList(
+  tagsUrl: string,
+  {
+    apiKey,
+    mode,
+    connectError,
+  }: { apiKey?: string; mode?: OllamaMode; connectError: (msg: string) => string },
+  fetchFn: typeof globalThis.fetch,
+): Promise<string[]> {
+  const headers: Record<string, string> = {};
+  if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+
+  let response: Response;
+  try {
+    response = await fetchFn(tagsUrl, { headers });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new OllamaError(connectError(msg));
+  }
+
   if (!response.ok) {
-    throw new OllamaError(`Ollama returned an error: ${response.status} ${response.statusText}`);
+    throw await buildOllamaHttpError(response, { mode });
   }
 
   const data = await response.json();
@@ -61,6 +104,32 @@ export async function getLocalModels(
     throw new OllamaError('Unexpected response from Ollama: missing "models" list');
   }
   return (data.models as { name: string }[]).map((m) => m.name);
+}
+
+export async function getLocalModels(
+  tagsUrl: string,
+  fetchFn: typeof globalThis.fetch = globalThis.fetch,
+): Promise<string[]> {
+  return fetchModelList(
+    tagsUrl,
+    {
+      mode: 'local',
+      connectError: (msg) =>
+        `Could not connect to Ollama: ${msg}. Make sure it is running with: ollama serve`,
+    },
+    fetchFn,
+  );
+}
+
+export async function getCloudModels(
+  apiKey: string,
+  fetchFn: typeof globalThis.fetch = globalThis.fetch,
+): Promise<string[]> {
+  return fetchModelList(
+    CLOUD_TAGS_URL,
+    { apiKey, mode: 'cloud', connectError: (msg) => `Could not reach Ollama Cloud: ${msg}` },
+    fetchFn,
+  );
 }
 
 export async function generateCommitMessage(
@@ -101,7 +170,7 @@ export async function generateCommitMessage(
   }
 
   if (!response.ok) {
-    throw new OllamaError(`Ollama returned an error: ${response.status} ${response.statusText}`);
+    throw await buildOllamaHttpError(response, { model: config.model, mode: config.ollamaMode });
   }
 
   const data = await response.json();

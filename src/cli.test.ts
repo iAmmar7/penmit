@@ -34,6 +34,7 @@ const DEFAULT_ARGS = {
   setup: false,
   reset: false,
   yes: false,
+  json: false,
 };
 
 describe('run', () => {
@@ -112,6 +113,10 @@ describe('run', () => {
   async function run(argv?: string[], env?: Record<string, string | undefined>) {
     const { run: runFn } = await import('./cli.js');
     return runFn(argv, env ?? {});
+  }
+
+  function loggedOutput(): string {
+    return logSpy.mock.calls.flat().map(String).join('\n');
   }
 
   describe('argument handling', () => {
@@ -367,7 +372,7 @@ describe('run', () => {
         provider: 'ollama',
         ollamaMode: 'cloud',
         url: 'https://ollama.com/api/chat',
-        model: 'devstral-small-2:24b',
+        model: 'gpt-oss:20b',
         apiKey: 'sk-test',
 
         maxLength: 72,
@@ -381,7 +386,7 @@ describe('run', () => {
         expect.objectContaining({
           provider: 'ollama',
           ollamaMode: 'cloud',
-          model: 'devstral-small-2:24b',
+          model: 'gpt-oss:20b',
           apiKey: 'sk-test',
         }),
       );
@@ -906,6 +911,217 @@ describe('run', () => {
         'process.exit(1)',
       );
       expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('raw openai error'));
+    });
+  });
+
+  describe('config subcommand', () => {
+    it('prints effective settings without prompting, fetching, or writing', async () => {
+      vi.mocked(configModule.parseArgs).mockReturnValue({ ...DEFAULT_ARGS, command: 'config' });
+
+      await run(['config']);
+
+      const output = loggedOutput();
+      expect(output).toContain('Config file:');
+      expect(output).toContain('/fake/.config/penmit/config.json');
+      expect(output).toContain('Local (Ollama)');
+      expect(output).toContain('llama3.2');
+      expect(output).toContain('(saved)');
+
+      expect(promptModule.selectFromList).not.toHaveBeenCalled();
+      expect(promptModule.promptInput).not.toHaveBeenCalled();
+      expect(promptModule.promptUser).not.toHaveBeenCalled();
+      expect(ollamaModule.getLocalModels).not.toHaveBeenCalled();
+      expect(ollamaModule.generateCommitMessage).not.toHaveBeenCalled();
+      expect(configModule.writeUserConfig).not.toHaveBeenCalled();
+      expect(gitModule.getStagedDiff).not.toHaveBeenCalled();
+    });
+
+    it('masks the saved API key and never prints it in full', async () => {
+      vi.mocked(configModule.parseArgs).mockReturnValue({ ...DEFAULT_ARGS, command: 'config' });
+      vi.mocked(configModule.readUserConfig).mockReturnValue({
+        provider: 'ollama',
+        ollamaMode: 'cloud',
+        model: 'gpt-oss:20b',
+        apiKey: 'sk-test-1234abcd',
+      });
+
+      await run(['config']);
+
+      const output = loggedOutput();
+      expect(output).toContain('Ollama Cloud');
+      expect(output).toContain('abcd');
+      expect(output).not.toContain('sk-test-1234abcd');
+    });
+
+    it('reports env-derived provider with the env var name', async () => {
+      vi.mocked(configModule.parseArgs).mockReturnValue({ ...DEFAULT_ARGS, command: 'config' });
+      vi.mocked(configModule.readUserConfig).mockReturnValue({});
+
+      await run(['config'], { OLLAMA_API_KEY: 'sk-env-9876wxyz' });
+
+      const output = loggedOutput();
+      expect(output).toContain('Ollama Cloud');
+      expect(output).toContain('OLLAMA_API_KEY');
+      expect(output).toContain('gpt-oss:20b');
+      expect(output).toContain('(default)');
+      expect(output).not.toContain('sk-env-9876wxyz');
+    });
+
+    it('--json emits parseable JSON with sources', async () => {
+      vi.mocked(configModule.parseArgs).mockReturnValue({
+        ...DEFAULT_ARGS,
+        command: 'config',
+        json: true,
+      });
+
+      await run(['config', '--json']);
+
+      const parsed = JSON.parse(String(logSpy.mock.calls[0][0])) as {
+        configFile: { path: string; found: boolean };
+        provider: { value?: string; source: string };
+        model: { value?: string; source: string };
+      };
+      expect(parsed.configFile.path).toBe('/fake/.config/penmit/config.json');
+      expect(parsed.provider).toEqual({
+        value: 'ollama',
+        mode: 'local',
+        label: 'Local (Ollama)',
+        source: 'saved',
+      });
+      expect(parsed.model).toEqual({ value: 'llama3.2', source: 'saved' });
+    });
+
+    it('handles a fresh machine with nothing configured', async () => {
+      vi.mocked(configModule.parseArgs).mockReturnValue({ ...DEFAULT_ARGS, command: 'config' });
+      vi.mocked(configModule.readUserConfig).mockReturnValue({});
+
+      await run(['config'], {});
+
+      const output = loggedOutput();
+      expect(output).toContain('(not set)');
+      expect(output).toContain('(not found)');
+      expect(output).toContain('run penmit to configure');
+    });
+  });
+
+  describe('models subcommand', () => {
+    it('lists local models without generating or prompting', async () => {
+      vi.mocked(configModule.parseArgs).mockReturnValue({ ...DEFAULT_ARGS, command: 'models' });
+      vi.mocked(ollamaModule.getLocalModels).mockResolvedValue(['mistral', 'llama3.2']);
+
+      await run(['models']);
+
+      const output = loggedOutput();
+      expect(output).toContain('Models for Local (Ollama):');
+      expect(output).toContain('llama3.2');
+      expect(output).toContain('mistral');
+      expect(ollamaModule.getLocalModels).toHaveBeenCalledWith(TAGS_URL);
+      expect(ollamaModule.generateCommitMessage).not.toHaveBeenCalled();
+      expect(promptModule.selectFromList).not.toHaveBeenCalled();
+      expect(configModule.writeUserConfig).not.toHaveBeenCalled();
+      expect(gitModule.getStagedDiff).not.toHaveBeenCalled();
+    });
+
+    it('lists cloud models sorted, using the env API key, with tier note', async () => {
+      vi.mocked(configModule.parseArgs).mockReturnValue({ ...DEFAULT_ARGS, command: 'models' });
+      vi.mocked(configModule.readUserConfig).mockReturnValue({});
+      vi.mocked(ollamaModule.getCloudModels).mockResolvedValue(['qwen3.5', 'gpt-oss:20b']);
+
+      await run(['models'], { OLLAMA_API_KEY: 'sk-test' });
+
+      const output = loggedOutput();
+      expect(output).toContain('Models for Ollama Cloud:');
+      expect(output).toContain('gpt-oss:20b');
+      expect(output).toContain('subscription-gated');
+      expect(ollamaModule.getCloudModels).toHaveBeenCalledWith('sk-test');
+      expect(ollamaModule.getLocalModels).not.toHaveBeenCalled();
+    });
+
+    it('lists cloud models using the saved API key when no env key is set', async () => {
+      vi.mocked(configModule.parseArgs).mockReturnValue({ ...DEFAULT_ARGS, command: 'models' });
+      vi.mocked(configModule.readUserConfig).mockReturnValue({
+        provider: 'ollama',
+        ollamaMode: 'cloud',
+        model: 'gpt-oss:20b',
+        apiKey: 'sk-saved-cloud',
+      });
+      vi.mocked(ollamaModule.getCloudModels).mockResolvedValue(['gpt-oss:20b']);
+
+      await run(['models'], {});
+
+      expect(ollamaModule.getCloudModels).toHaveBeenCalledWith('sk-saved-cloud');
+      expect(loggedOutput()).toContain('Models for Ollama Cloud:');
+    });
+
+    it('exits with code 1 for cloud without an API key', async () => {
+      vi.mocked(configModule.parseArgs).mockReturnValue({
+        ...DEFAULT_ARGS,
+        command: 'models',
+        provider: 'ollama',
+        ollamaMode: 'cloud',
+      });
+      vi.mocked(configModule.readUserConfig).mockReturnValue({});
+
+      await expect(run(['models', '--cloud'], {})).rejects.toThrow('process.exit(1)');
+      expect(errorSpy).toHaveBeenCalledTimes(1);
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('OLLAMA_API_KEY'));
+      expect(ollamaModule.getCloudModels).not.toHaveBeenCalled();
+    });
+
+    it('exits with code 1 when no provider is configured', async () => {
+      vi.mocked(configModule.parseArgs).mockReturnValue({ ...DEFAULT_ARGS, command: 'models' });
+      vi.mocked(configModule.readUserConfig).mockReturnValue({});
+
+      await expect(run(['models'], {})).rejects.toThrow('process.exit(1)');
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('No provider configured'));
+    });
+
+    it('prints curated header for anthropic without network calls', async () => {
+      vi.mocked(configModule.parseArgs).mockReturnValue({ ...DEFAULT_ARGS, command: 'models' });
+      vi.mocked(configModule.readUserConfig).mockReturnValue({});
+
+      await run(['models'], { ANTHROPIC_API_KEY: 'sk-ant-test' });
+
+      const output = loggedOutput();
+      expect(output).toContain('Models for Anthropic:');
+      expect(output).toContain('Curated list');
+      expect(ollamaModule.getLocalModels).not.toHaveBeenCalled();
+      expect(ollamaModule.getCloudModels).not.toHaveBeenCalled();
+    });
+
+    it('--json emits parseable JSON with sorted models', async () => {
+      vi.mocked(configModule.parseArgs).mockReturnValue({
+        ...DEFAULT_ARGS,
+        command: 'models',
+        json: true,
+      });
+      vi.mocked(configModule.readUserConfig).mockReturnValue({});
+      vi.mocked(ollamaModule.getCloudModels).mockResolvedValue(['qwen3.5', 'gpt-oss:20b']);
+
+      await run(['models', '--json'], { OLLAMA_API_KEY: 'sk-test' });
+
+      const parsed = JSON.parse(String(logSpy.mock.calls[0][0])) as {
+        provider: string;
+        mode?: string;
+        label: string;
+        models: string[];
+        note?: string;
+      };
+      expect(parsed.provider).toBe('ollama');
+      expect(parsed.mode).toBe('cloud');
+      expect(parsed.label).toBe('Ollama Cloud');
+      expect(parsed.models).toEqual(['gpt-oss:20b', 'qwen3.5']);
+      expect(parsed.note).toContain('subscription-gated');
+    });
+
+    it('exits with code 1 when the model listing fails', async () => {
+      vi.mocked(configModule.parseArgs).mockReturnValue({ ...DEFAULT_ARGS, command: 'models' });
+      vi.mocked(ollamaModule.getLocalModels).mockRejectedValue(
+        new OllamaError('Could not connect to Ollama'),
+      );
+
+      await expect(run(['models'])).rejects.toThrow('process.exit(1)');
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('Could not connect to Ollama'));
     });
   });
 });
